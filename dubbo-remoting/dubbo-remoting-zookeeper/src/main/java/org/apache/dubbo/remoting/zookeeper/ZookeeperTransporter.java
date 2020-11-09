@@ -24,6 +24,9 @@ import org.apache.dubbo.remoting.Constants;
 @SPI("curator")
 public interface ZookeeperTransporter {
 
+    /**
+     * ZookeeperTransporter 只负责一件事情, 那就是创建 ZookeeperClient 对象
+     */
     @Adaptive({Constants.CLIENT_KEY, Constants.TRANSPORTER_KEY})
     ZookeeperClient connect(URL url);
 

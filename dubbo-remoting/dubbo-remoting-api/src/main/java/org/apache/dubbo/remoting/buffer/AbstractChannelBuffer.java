@@ -24,10 +24,18 @@ import java.nio.ByteBuffer;
 
 public abstract class AbstractChannelBuffer implements ChannelBuffer {
 
+    /**
+     * 通过 readBytes() 方法及其重载读取数据时, 会后移 readerIndex 索引
+     * 通过 writeBytes() 方法及其重载写入数据的时候, 会后移 writerIndex 索引
+     */
     private int readerIndex;
 
     private int writerIndex;
 
+    /**
+     * 实现记录 readerIndex(writerIndex)以及回滚 readerIndex（writerIndex）的功能, 前面我们已经介绍过
+     * markReaderIndex() 方法、resetReaderIndex() 方法以及 markWriterIndex() 方法、resetWriterIndex() 方法
+     */
     private int markedReaderIndex;
 
     private int markedWriterIndex;
@@ -191,8 +199,11 @@ public abstract class AbstractChannelBuffer implements ChannelBuffer {
 
     @Override
     public void readBytes(byte[] dst, int dstIndex, int length) {
+        // 检测可读字节数是否足够
         checkReadableBytes(length);
+        // 将readerIndex之后的length个字节数读取到dst数组中dstIndex~dstIndex+length的位置
         getBytes(readerIndex, dst, dstIndex, length);
+        // 将readerIndex后移length个字节
         readerIndex += length;
     }
 
@@ -253,7 +264,9 @@ public abstract class AbstractChannelBuffer implements ChannelBuffer {
 
     @Override
     public void writeBytes(byte[] src, int srcIndex, int length) {
+        // 将src数组中srcIndex~srcIndex+length的数据写入当前buffer中writerIndex~writerIndex+length的位置
         setBytes(writerIndex, src, srcIndex, length);
+        // 将writeIndex后移length个字节
         writerIndex += length;
     }
 

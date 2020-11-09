@@ -35,6 +35,7 @@ import static org.apache.dubbo.registry.Constants.REGISTRY_RETRY_TIMES_KEY;
 
 /**
  * AbstractRetryTask
+ * 在 AbstractRetryTask 中维护了当前任务关联的 URL、当前重试的次数等信息
  */
 public abstract class AbstractRetryTask implements TimerTask {
 
@@ -106,12 +107,18 @@ public abstract class AbstractRetryTask implements TimerTask {
         timer.newTimeout(timeout.task(), tick, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * 在其 run() 方法中,  会根据重试 URL 中指定的重试次数(retry.times 参数,  默认值为 3)、任务是否被取消以及时间轮的状态,
+     * 决定此次任务的 doRetry() 方法是否正常执行
+     */
     @Override
     public void run(Timeout timeout) throws Exception {
+        // 检测定时任务状态和时间轮状态
         if (timeout.isCancelled() || timeout.timer().isStop() || isCancel()) {
             // other thread cancel this timeout or stop the timer.
             return;
         }
+        // 检查重试次数
         if (times > retryTimes) {
             // reach the most times of retry.
             logger.warn("Final failed to execute task " + taskName + ", url: " + url + ", retry " + retryTimes + " times.");
@@ -120,14 +127,23 @@ public abstract class AbstractRetryTask implements TimerTask {
         if (logger.isInfoEnabled()) {
             logger.info(taskName + " : " + url);
         }
+        // 执行重试
         try {
+            // 如果任务的 doRetry() 方法执行出现异常, AbstractRetryTask 会通过 reput() 方法将当前任务重新放入时间轮中, 并递增当前任务的执行次数
+            // AbstractRetryTask 将 doRetry() 方法作为抽象方法, 留给子类实现具体的重试逻辑, 这也是模板方法的使用
             doRetry(url, registry, timeout);
         } catch (Throwable t) { // Ignore all the exceptions and wait for the next retry
             logger.warn("Failed to execute task " + taskName + ", url: " + url + ", waiting for again, cause:" + t.getMessage(), t);
             // reput this task when catch exception.
+            // 重新添加定时任务, 等待重试
             reput(timeout, retryPeriod);
         }
     }
 
+    /**
+     * 在子类 FailedRegisteredTask 的 doRetry() 方法实现中, 会再次执行关联 Registry 的 doRegister() 方法, 完成与服务发现组件交互.
+     * 如果注册成功, 则会调用 removeFailedRegisteredTask() 方法将当前关联的 URL 以及当前重试任务从 failedRegistered 集合中删除.
+     * 如果注册失败, 则会抛出异常, 执行上文介绍的 reput ()方法重试
+     */
     protected abstract void doRetry(URL url, FailbackRegistry registry, Timeout timeout);
 }

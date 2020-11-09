@@ -41,6 +41,9 @@ public abstract class AbstractCodec implements Codec2 {
 
     private static final String SERVER_SIDE = "server";
 
+    /**
+     * 检查编解码数据的长度, 如果数据超长, 会抛出异常
+     */
     protected static void checkPayload(Channel channel, long size) throws IOException {
         int payload = Constants.DEFAULT_PAYLOAD;
         if (channel != null && channel.getUrl() != null) {
@@ -54,10 +57,16 @@ public abstract class AbstractCodec implements Codec2 {
         }
     }
 
+    /**
+     * 通过 SPI 获取当前使用的序列化方式
+     */
     protected Serialization getSerialization(Channel channel) {
         return CodecSupport.getSerialization(channel.getUrl());
     }
 
+    /**
+     * 判断当前是 Client 端还是 Server 端
+     */
     protected boolean isClientSide(Channel channel) {
         String side = (String)channel.getAttribute(SIDE_KEY);
         if (CLIENT_SIDE.equals(side)) {

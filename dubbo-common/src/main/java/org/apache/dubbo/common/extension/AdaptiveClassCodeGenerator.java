@@ -92,11 +92,16 @@ public class AdaptiveClassCodeGenerator {
             throw new IllegalStateException("No adaptive method exist on extension " + type.getName() + ", refuse to create the adaptive class!");
         }
 
+        // 用来存放生成的代理类class文件
         StringBuilder code = new StringBuilder();
+        // 生成包信息
         code.append(generatePackageInfo());
+        // 生成导包信息
         code.append(generateImports());
+        // 生成类名
         code.append(generateClassDeclaration());
 
+        // 遍历所有方法, 为SPI接口的所有方法生成代理方法
         Method[] methods = type.getMethods();
         for (Method method : methods) {
             code.append(generateMethod(method));

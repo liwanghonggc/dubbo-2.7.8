@@ -18,6 +18,9 @@ package org.apache.dubbo.common;
 
 /**
  * Node. (API/SPI, Prototype, ThreadSafe)
+ * 
+ * 在Dubbo中, 一般使用Node这个接口来抽象节点的概念
+ * Node不仅可以表示Provider和Consumer节点, 还可以表示注册中心节点
  */
 public interface Node {
 

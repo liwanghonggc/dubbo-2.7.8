@@ -30,10 +30,19 @@ import java.util.concurrent.TimeUnit;
  */
 public abstract class AbstractTimerTask implements TimerTask {
 
+    /**
+     * ChannelProvider 是 AbstractTimerTask 抽象类中定义的内部接口, 定时任务会从该对象中获取 Channel
+     */
     private final ChannelProvider channelProvider;
 
+    /**
+     * 任务的过期时间
+     */
     private final Long tick;
 
+    /**
+     * 任务是否已取消
+     */
     protected volatile boolean cancel = false;
 
     AbstractTimerTask(ChannelProvider channelProvider, Long tick) {
@@ -77,15 +86,24 @@ public abstract class AbstractTimerTask implements TimerTask {
         timer.newTimeout(timeout.task(), tick, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * AbstractTimerTask 抽象类实现了 TimerTask 接口的 run() 方法, 首先会从 ChannelProvider 中获取此次任务相关的
+     * Channel 集合(在 Client 端只有一个 Channel, 在 Server 端有多个 Channel), 然后检查 Channel 的状态,
+     * 针对未关闭的 Channel 执行 doTask() 方法处理, 最后通过 reput() 方法将当前任务重新加入时间轮中, 等待再次到期执行
+     */
     @Override
     public void run(Timeout timeout) throws Exception {
+        // 从ChannelProvider中获取任务要操作的Channel集合
         Collection<Channel> c = channelProvider.getChannels();
         for (Channel channel : c) {
+            // 检测Channel状态
             if (channel.isClosed()) {
                 continue;
             }
+            // 执行任务
             doTask(channel);
         }
+        // 将当前任务重新加入时间轮中, 等待执行
         reput(timeout, tick);
     }
 

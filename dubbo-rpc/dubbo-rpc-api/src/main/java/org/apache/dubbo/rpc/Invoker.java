@@ -24,11 +24,14 @@ import org.apache.dubbo.common.Node;
  * @see org.apache.dubbo.rpc.Protocol#refer(Class, org.apache.dubbo.common.URL)
  * @see org.apache.dubbo.rpc.InvokerListener
  * @see org.apache.dubbo.rpc.protocol.AbstractInvoker
+ *
+ *
  */
 public interface Invoker<T> extends Node {
 
     /**
      * get service interface.
+     * 服务接口
      *
      * @return service interface.
      */
@@ -36,7 +39,7 @@ public interface Invoker<T> extends Node {
 
     /**
      * invoke.
-     *
+     * 进行一次调用, 也有人称之为一次"会话", 你可以理解为一次调用
      * @param invocation
      * @return result
      * @throws RpcException

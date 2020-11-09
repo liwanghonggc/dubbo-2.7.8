@@ -79,6 +79,9 @@ public final class ChannelBuffers {
         }
     }
 
+    /**
+     * 创建 ByteBufferBackedChannelBuffer 对象, 需要注意的是, 底层的 ByteBuffer 使用的堆外内存, 需要特别关注堆外内存的管理
+     */
     public static ChannelBuffer directBuffer(int capacity) {
         if (capacity == 0) {
             return EMPTY_BUFFER;
@@ -90,6 +93,10 @@ public final class ChannelBuffers {
         return buffer;
     }
 
+    /**
+     * 用于比较两个 ChannelBuffer 是否相同, 其中会逐个比较两个 ChannelBuffer 中的前 7 个可读字节,
+     * 只有两者完全一致, 才算两个 ChannelBuffer 相同
+     */
     public static boolean equals(ChannelBuffer bufferA, ChannelBuffer bufferB) {
         final int aLen = bufferA.readableBytes();
         if (aLen != bufferB.readableBytes()) {
@@ -130,6 +137,9 @@ public final class ChannelBuffers {
         return hashCode;
     }
 
+    /**
+     * 用于比较两个 ChannelBuffer 的大小, 会逐个比较两个 ChannelBuffer 中的全部可读字节, 具体实现与 equals() 方法类似
+     */
     public static int compare(ChannelBuffer bufferA, ChannelBuffer bufferB) {
         final int aLen = bufferA.readableBytes();
         final int bLen = bufferB.readableBytes();

@@ -44,9 +44,14 @@ import org.apache.dubbo.common.extension.SPI;
 public interface Filter {
     /**
      * Make sure call invoker.invoke() in your implementation.
+     * 在 Dubbo 的 Filter 接口中, 定义了一个 invoke() 方法将请求传递给后续的 Invoker 进行处理
+     * (后续的这个 Invoker 对象可能是一个 Filter 封装而成的)
      */
     Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException;
 
+    /**
+     * 用于监听响应以及异常
+     */
     interface Listener {
 
         void onResponse(Result appResponse, Invoker<?> invoker, Invocation invocation);

@@ -26,6 +26,12 @@ import org.apache.dubbo.common.extension.SPI;
  * <a href="http://en.wikipedia.org/wiki/Transport_Layer">Transport Layer</a>
  * <a href="http://en.wikipedia.org/wiki/Client%E2%80%93server_model">Client/Server</a>
  *
+ * Dubbo 在 Client 和 Server 之上又封装了一层Transporter 接口
+ * 
+ * 我们看到 Transporter 接口上有 @SPI 注解, 它是一个扩展接口, 默认使用netty这个扩展名,
+ * @Adaptive 注解的出现表示动态生成适配器类, 会先后根据server、transporter的值确定
+ * RemotingServer 的扩展实现类, 先后根据client、transporter的值确定 Client 接口的扩展实现
+ *
  * @see org.apache.dubbo.remoting.Transporters
  */
 @SPI("netty")

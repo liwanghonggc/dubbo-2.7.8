@@ -22,6 +22,10 @@ import org.apache.dubbo.remoting.buffer.ChannelBuffer;
 
 import java.io.IOException;
 
+/**
+ * 这里需要关注的是 Codec2 接口被 @SPI 接口修饰了, 表示该接口是一个扩展接口, 同时其 encode() 方法和 decode()
+ * 方法都被 @Adaptive 注解修饰, 也就会生成适配器类, 其中会根据 URL 中的 codec 值确定具体的扩展实现类
+ */
 @SPI
 public interface Codec2 {
 
@@ -32,6 +36,10 @@ public interface Codec2 {
     Object decode(Channel channel, ChannelBuffer buffer) throws IOException;
 
 
+    /**
+     * DecodeResult 这个枚举是在处理 TCP 传输时粘包和拆包使用的, 当前能读取到的数据不足以构成一个消息时,
+     * 就会使用 NEED_MORE_INPUT 这个枚举
+     */
     enum DecodeResult {
         NEED_MORE_INPUT, SKIP_SOME_INPUT
     }

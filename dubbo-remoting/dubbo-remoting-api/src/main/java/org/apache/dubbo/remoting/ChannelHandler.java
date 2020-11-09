@@ -21,6 +21,9 @@ import org.apache.dubbo.common.extension.SPI;
 
 /**
  * ChannelHandler. (API, Prototype, ThreadSafe)
+ * 
+ * ChannelHandler 是注册在 Channel 上的消息处理器, 在 Netty 中也有类似的抽象,在 ChannelHandler 中可以处理 Channel 的连接建立
+ * 以及连接断开事件,还可以处理读取到的数据、发送的数据以及捕获到的异常. 从这些方法的命名可以看到, 它们都是动词的过去式, 说明相应事件已经发生过了
  *
  * @see org.apache.dubbo.remoting.Transporter#bind(org.apache.dubbo.common.URL, ChannelHandler)
  * @see org.apache.dubbo.remoting.Transporter#connect(org.apache.dubbo.common.URL, ChannelHandler)

@@ -22,7 +22,8 @@ import org.apache.dubbo.rpc.Exporter;
 import org.apache.dubbo.rpc.Invoker;
 
 /**
- * AbstractExporter.
+ * AbstractExporter 中维护了一个 Invoker 对象, 以及一个 unexported 字段(boolean 类型),
+ * 在 unexport() 方法中会设置 unexported 字段为 true, 并调用 Invoker 对象的 destory() 方法进行销毁
  */
 public abstract class AbstractExporter<T> implements Exporter<T> {
 

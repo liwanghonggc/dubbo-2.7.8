@@ -22,6 +22,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
+/**
+ * ByteBufferBackedChannelBuffer 是基于 Java NIO 中 ByteBuffer 的 ChannelBuffer 实现,
+ * 其中的方法基本都是通过组合 ByteBuffer 的 API 实现的
+ */
 public class ByteBufferBackedChannelBuffer extends AbstractChannelBuffer {
 
     private final ByteBuffer buffer;

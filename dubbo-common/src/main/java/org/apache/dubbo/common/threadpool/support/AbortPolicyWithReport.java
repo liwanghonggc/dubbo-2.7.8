@@ -38,6 +38,8 @@ import static org.apache.dubbo.common.constants.CommonConstants.DUMP_DIRECTORY;
 /**
  * Abort Policy.
  * Log warn info when abort.
+ * 它继承了 ThreadPoolExecutor.AbortPolicy, 覆盖的 rejectedExecution 方法中会输出包含线程池相关信息的
+ * WARN 级别日志, 然后进行 dumpJStack() 方法, 最后才会抛出RejectedExecutionException 异常
  */
 public class AbortPolicyWithReport extends ThreadPoolExecutor.AbortPolicy {
 

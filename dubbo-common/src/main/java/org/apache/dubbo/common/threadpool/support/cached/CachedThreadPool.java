@@ -48,10 +48,15 @@ public class CachedThreadPool implements ThreadPool {
     @Override
     public Executor getExecutor(URL url) {
         String name = url.getParameter(THREAD_NAME_KEY, DEFAULT_THREAD_NAME);
+        // 核心线程数量
         int cores = url.getParameter(CORE_THREADS_KEY, DEFAULT_CORE_THREADS);
+        // 最大线程数量
         int threads = url.getParameter(THREADS_KEY, Integer.MAX_VALUE);
+        // 缓冲队列的最大长度
         int queues = url.getParameter(QUEUES_KEY, DEFAULT_QUEUES);
+        // 非核心线程的最大空闲时长, 当非核心线程空闲时间超过该值时, 会被回收
         int alive = url.getParameter(ALIVE_KEY, DEFAULT_ALIVE);
+        // 下面就是依赖JDK的ThreadPoolExecutor创建指定特性的线程池并返回
         return new ThreadPoolExecutor(cores, threads, alive, TimeUnit.MILLISECONDS,
                 queues == 0 ? new SynchronousQueue<Runnable>() :
                         (queues < 0 ? new LinkedBlockingQueue<Runnable>()

@@ -40,6 +40,8 @@ import static org.apache.dubbo.common.constants.CommonConstants.THREAD_NAME_KEY;
 /**
  * Creates a thread pool that creates new threads as needed until limits reaches. This thread pool will not shrink
  * automatically.
+ * 与 CacheThreadPool 一样, 可以指定核心线程数、最大线程数以及缓冲队列长度.
+ * 区别在于, LimitedThreadPool 创建的线程池的非核心线程不会被回收
  */
 public class LimitedThreadPool implements ThreadPool {
 

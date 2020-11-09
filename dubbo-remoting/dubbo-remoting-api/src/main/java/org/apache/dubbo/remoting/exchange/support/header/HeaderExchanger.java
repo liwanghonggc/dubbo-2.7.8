@@ -28,7 +28,9 @@ import org.apache.dubbo.remoting.transport.DecodeHandler;
 /**
  * DefaultMessenger
  *
- *
+ * 从 HeaderExchanger 的实现可以看到, 它会在 Transport 层的 Client 和 Server 实现基础之上,
+ * 添加前文介绍的 HeaderExchangeClient 和 HeaderExchangeServer 装饰器. 同时, 为上层实现的
+ * ExchangeHandler 实例添加了 HeaderExchangeHandler 以及 DecodeHandler 两个修饰器
  */
 public class HeaderExchanger implements Exchanger {
 

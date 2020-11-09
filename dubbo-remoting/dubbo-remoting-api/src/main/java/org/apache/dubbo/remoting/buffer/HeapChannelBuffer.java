@@ -25,6 +25,11 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 
+/**
+ * HeapChannelBuffer 是基于字节数组的 ChannelBuffer 实现,  我们可以看到其中有一个 array (byte[]数组)字段,
+ * 它就是 HeapChannelBuffer 存储数据的地方. HeapChannelBuffer 的 setBytes() 以及 getBytes() 方法实现是调用
+ * System.arraycopy() 方法完成数组操作的
+ */
 public class HeapChannelBuffer extends AbstractChannelBuffer {
 
     /**

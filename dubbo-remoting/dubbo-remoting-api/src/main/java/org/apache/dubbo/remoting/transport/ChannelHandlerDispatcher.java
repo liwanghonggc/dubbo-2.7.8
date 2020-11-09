@@ -28,6 +28,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
  * ChannelListenerDispatcher
+ * ChannelHandlerDispatcher 也是 ChannelHandler 接口的实现类之一, 维护了一个 CopyOnWriteArraySet 集合, 它所有的
+ * ChannelHandler 接口实现都会调用其中每个 ChannelHandler 元素的相应方法. 另外, ChannelHandlerDispatcher 还提供了
+ * 增删该 ChannelHandler 集合的相关方法
  */
 public class ChannelHandlerDispatcher implements ChannelHandler {
 

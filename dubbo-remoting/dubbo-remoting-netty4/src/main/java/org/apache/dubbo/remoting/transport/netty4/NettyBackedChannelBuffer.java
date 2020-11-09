@@ -28,6 +28,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
+/**
+ * NettyBackedChannelBuffer 是基于 Netty 中 ByteBuf 的 ChannelBuffer 实现,  Netty 中的 ByteBuf 内部维护了
+ * readerIndex 和 writerIndex 以及 markedReaderIndex、markedWriterIndex 这四个索引,  所以 NettyBackedChannelBuffer
+ * 没有再继承 AbstractChannelBuffer 抽象类,  而是直接实现了 ChannelBuffer 接口
+ */
 public class NettyBackedChannelBuffer implements ChannelBuffer {
 
     private ByteBuf buffer;

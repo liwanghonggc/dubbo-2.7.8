@@ -20,6 +20,11 @@ package org.apache.dubbo.remoting.buffer;
 import java.io.IOException;
 import java.io.InputStream;
 
+/**
+ * ChannelBufferInputStream 底层封装了一个 ChannelBuffer, 其实现 InputStream 接口的 read*() 方法全部都是从
+ * ChannelBuffer 中读取数据. ChannelBufferInputStream 中还维护了一个 startIndex 和一个endIndex 索引,
+ * 作为读取数据的起止位置. ChannelBufferOutputStream 与 ChannelBufferInputStream 类似, 会向底层的 ChannelBuffer 写入数据
+ */
 public class ChannelBufferInputStream extends InputStream {
 
     private final ChannelBuffer buffer;

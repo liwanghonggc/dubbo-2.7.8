@@ -49,7 +49,17 @@ import static org.apache.dubbo.common.constants.CommonConstants.IO_THREADS_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.SSL_ENABLED_KEY;
 
 /**
- * NettyServer.
+ * 基于 Netty 4 实现的 NettyServer, 它继承了前文介绍的 AbstractServer, 实现了 doOpen() 方法和 doClose() 方法
+ * 
+ * IdleStateHandler, 它是 Netty 提供的一个工具型 ChannelHandler, 用于定时心跳请求的功能或是自动关闭长时间空闲连接的功能. 
+ * 它的原理到底是怎样的呢? 在 IdleStateHandler 中通过 lastReadTime、lastWriteTime 等几个字段, 记录了最近一次读/写事件的时间,
+ * IdleStateHandler 初始化的时候, 会创建一个定时任务, 定时检测当前时间与最后一次读/写时间的差值. 如果超过我们设置的阈值
+ * (也就是上面 NettyServer 中设置的 idleTimeout), 就会触发 IdleStateEvent 事件, 并传递给后续的 ChannelHandler 进行处理.
+ * 后续 ChannelHandler 的 userEventTriggered() 方法会根据接收到的 IdleStateEvent 事件, 决定是关闭长时间空闲的连接, 还是发送心跳探活
+ * 
+ * 从 AbstractPeer 开始往下, 一路继承下来, NettyServer 拥有了 Endpoint、ChannelHandler 以及RemotingServer多个接口的能力,
+ * 关联了一个 ChannelHandler 对象以及 Codec2 对象, 并最终将数据委托给这两个对象进行处理. 所以, 上层调用方只需要实现 ChannelHandler
+ * 和 Codec2 这两个接口就可以了
  */
 public class NettyServer extends AbstractServer implements RemotingServer {
 
@@ -73,7 +83,8 @@ public class NettyServer extends AbstractServer implements RemotingServer {
 
     public NettyServer(URL url, ChannelHandler handler) throws RemotingException {
         // you can customize name and type of client thread pool by THREAD_NAME_KEY and THREADPOOL_KEY in CommonConstants.
-        // the handler will be wrapped: MultiMessageHandler->HeartbeatHandler->handler
+        // the handler will be wrapped: MultiMessageHandler - >HeartbeatHandler -> handler
+        // 分析下这边的ChannelHandlers.wrap方法， 对ChannelHandler进行封装
         super(ExecutorUtil.setThreadName(url, SERVER_THREAD_POOL_NAME), ChannelHandlers.wrap(handler, url));
     }
 
@@ -84,16 +95,22 @@ public class NettyServer extends AbstractServer implements RemotingServer {
      */
     @Override
     protected void doOpen() throws Throwable {
+        // 创建ServerBootstrap
         bootstrap = new ServerBootstrap();
 
+        // 创建boss EventLoopGroup与workerGroup
         bossGroup = NettyEventLoopFactory.eventLoopGroup(1, "NettyServerBoss");
         workerGroup = NettyEventLoopFactory.eventLoopGroup(
                 getUrl().getPositiveParameter(IO_THREADS_KEY, Constants.DEFAULT_IO_THREADS),
                 "NettyServerWorker");
 
+        // 创建NettyServerHandler, 它是一个Netty中的ChannelHandler实现
         final NettyServerHandler nettyServerHandler = new NettyServerHandler(getUrl(), this);
+        
+        // 获取当前NettyServer创建的所有Channel, 这里的channels集合中的Channel不是Netty中的Channel对象, 而是Dubbo Remoting层的Channel对象
         channels = nettyServerHandler.getChannels();
 
+        // 初始化ServerBootstrap, 指定boss和worker EventLoopGroup
         bootstrap.group(bossGroup, workerGroup)
                 .channel(NettyEventLoopFactory.serverSocketChannelClass())
                 .option(ChannelOption.SO_REUSEADDR, Boolean.TRUE)
@@ -102,13 +119,16 @@ public class NettyServer extends AbstractServer implements RemotingServer {
                 .childHandler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     protected void initChannel(SocketChannel ch) throws Exception {
-                        // FIXME: should we use getTimeout()?
+                        // 连接空闲超时时间
                         int idleTimeout = UrlUtils.getIdleTimeout(getUrl());
+                        // NettyCodecAdapter中会创建Decoder和Encoder
                         NettyCodecAdapter adapter = new NettyCodecAdapter(getCodec(), getUrl(), NettyServer.this);
                         if (getUrl().getParameter(SSL_ENABLED_KEY, false)) {
                             ch.pipeline().addLast("negotiation",
                                     SslHandlerInitializer.sslServerHandler(getUrl(), nettyServerHandler));
                         }
+                        // 注册Decoder和Encoder
+                        // 分析4个ChannelHandler
                         ch.pipeline()
                                 .addLast("decoder", adapter.getDecoder())
                                 .addLast("encoder", adapter.getEncoder())
@@ -116,8 +136,9 @@ public class NettyServer extends AbstractServer implements RemotingServer {
                                 .addLast("handler", nettyServerHandler);
                     }
                 });
-        // bind
+        // 绑定指定的地址和端口
         ChannelFuture channelFuture = bootstrap.bind(getBindAddress());
+        // 等待bind操作完成
         channelFuture.syncUninterruptibly();
         channel = channelFuture.channel();
 

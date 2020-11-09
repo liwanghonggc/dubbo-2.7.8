@@ -56,12 +56,16 @@ public final class FailedNotifiedTask extends AbstractRetryTask {
         this.urls.removeAll(urls);
     }
 
+    /**
+     * 在 FailedNotifiedTask 中维护了一个 URL 集合, 用来记录当前任务一次运行需要通知的 URL, 每执行完一次任务,就会清空该集合
+     */
     @Override
     protected void doRetry(URL url, FailbackRegistry registry, Timeout timeout) {
         if (CollectionUtils.isNotEmpty(urls)) {
             listener.notify(urls);
             urls.clear();
         }
+        // 将任务重新添加到时间轮中等待执行
         reput(timeout, retryPeriod);
     }
 }

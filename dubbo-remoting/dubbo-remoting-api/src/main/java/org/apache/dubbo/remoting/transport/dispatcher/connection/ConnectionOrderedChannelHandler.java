@@ -40,14 +40,21 @@ import static org.apache.dubbo.remoting.Constants.CONNECT_QUEUE_CAPACITY;
 import static org.apache.dubbo.remoting.Constants.CONNECT_QUEUE_WARNING_SIZE;
 import static org.apache.dubbo.remoting.Constants.DEFAULT_CONNECT_QUEUE_WARNING_SIZE;
 
+/**
+ * 会将收到的消息交给线程池进行处理, 对于连接建立以及断开事件, 会提交到一个独立的线程池并排队进行处理
+ */
 public class ConnectionOrderedChannelHandler extends WrappedChannelHandler {
 
     protected final ThreadPoolExecutor connectionExecutor;
     private final int queuewarninglimit;
 
+    /**
+     * 会初始化一个线程池, 该线程池的队列长度是固定的
+     */
     public ConnectionOrderedChannelHandler(ChannelHandler handler, URL url) {
         super(handler, url);
         String threadName = url.getParameter(THREAD_NAME_KEY, DEFAULT_THREAD_NAME);
+        // 注意, 该线程池只有一个线程, 队列的长度也是固定的,由URL中的connect.queue.capacity参数指定
         connectionExecutor = new ThreadPoolExecutor(1, 1,
                 0L, TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<Runnable>(url.getPositiveParameter(CONNECT_QUEUE_CAPACITY, Integer.MAX_VALUE)),
@@ -57,6 +64,10 @@ public class ConnectionOrderedChannelHandler extends WrappedChannelHandler {
         queuewarninglimit = url.getParameter(CONNECT_QUEUE_WARNING_SIZE, DEFAULT_CONNECT_QUEUE_WARNING_SIZE);
     }
 
+    /**
+     * 在 ConnectionOrderedChannelHandler 的 connected() 方法和 disconnected() 方法实现中,
+     * 会将连接建立和断开事件交给上述 connectionExecutor 线程池排队处理
+     */
     @Override
     public void connected(Channel channel) throws RemotingException {
         try {

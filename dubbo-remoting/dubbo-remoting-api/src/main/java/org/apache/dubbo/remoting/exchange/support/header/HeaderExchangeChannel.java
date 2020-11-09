@@ -38,6 +38,8 @@ import static org.apache.dubbo.common.constants.CommonConstants.TIMEOUT_KEY;
 
 /**
  * ExchangeReceiver
+ * HeaderExchangeChannel 是 ExchangeChannel 的实现, 它本身是 Channel 的装饰器,
+ * 封装了一个 Channel 对象, 其 send() 方法和 request() 方法的实现都是依赖底层修饰的这个 Channel 对象实现的
  */
 final class HeaderExchangeChannel implements ExchangeChannel {
 
@@ -120,6 +122,11 @@ final class HeaderExchangeChannel implements ExchangeChannel {
         return request(request, channel.getUrl().getPositiveParameter(TIMEOUT_KEY, DEFAULT_TIMEOUT), executor);
     }
 
+    /**
+     * 注意这里的 request() 方法, 它返回的是一个 DefaultFuture 对象. 通过前面课时的介绍我们知道,
+     * io.netty.channel.Channel 的 send() 方法会返回一个 ChannelFuture 方法, 表示此次发送操作是否完成,
+     * 而这里的DefaultFuture 就表示此次请求-响应是否完成, 也就是说, 要收到响应为 Future 才算完成
+     */
     @Override
     public CompletableFuture<Object> request(Object request, int timeout, ExecutorService executor) throws RemotingException {
         if (closed) {
@@ -156,7 +163,14 @@ final class HeaderExchangeChannel implements ExchangeChannel {
         }
     }
 
-    // graceful close
+    /**
+     * 在 HeaderExchangeChannel.close(timeout) 方法中首先会将自身的 closed 字段设置为 true,
+     * 这样就不会继续发送请求. 如果当前 Channel 上还有请求未收到响应, 会循环等待至收到响应, 如果
+     * 超时未收到响应, 会自己创建一个状态码将连接关闭的 Response 交给 DefaultFuture 处理, 与收到
+     * disconnected 事件相同. 然后会关闭 Transport 层的 Channel, 以 NettyChannel 为例,
+     * NettyChannel.close() 方法会先将自身的 closed 字段设置为 true, 清理 CHANNEL_MAP 缓存中的记录,
+     * 以及 Channel 的附加属性, 最后才是关闭 io.netty.channel.Channel
+     */
     @Override
     public void close(int timeout) {
         if (closed) {

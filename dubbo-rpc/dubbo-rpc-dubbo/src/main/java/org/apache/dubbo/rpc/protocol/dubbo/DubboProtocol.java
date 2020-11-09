@@ -281,8 +281,10 @@ public class DubboProtocol extends AbstractProtocol {
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
         URL url = invoker.getUrl();
 
-        // export service.
+        // 创建ServiceKey, 分析下这里的key
         String key = serviceKey(url);
+        
+        // 将上层传入的Invoker对象封装成DubboExporter对象, 然后记录到exporterMap集合中
         DubboExporter<T> exporter = new DubboExporter<T>(invoker, key, exporterMap);
         exporterMap.put(key, exporter);
 
@@ -300,28 +302,37 @@ public class DubboProtocol extends AbstractProtocol {
             }
         }
 
+        // 启动ProtocolServer
         openServer(url);
+        // 进行序列化的优化处理
         optimizeSerialization(url);
 
         return exporter;
     }
 
+    /**
+     * 首先, 在 openServer() 方法中会根据 URL 判断当前是否为服务端, 只有服务端才能创建
+     * ProtocolServer 并对外服务. 如果是来自服务端的调用, 会依靠 serverMap 集合检查是
+     * 否已有 ProtocolServer 在监听 URL 指定的地址. 如果没有, 会调用 createServer() 方法进行创建
+     */
     private void openServer(URL url) {
         // find server.
         String key = url.getAddress();
         //client can export a service which's only for server to invoke
         boolean isServer = url.getParameter(IS_SERVER_KEY, true);
+        // 只有Server端才能启动Server对象
         if (isServer) {
             ProtocolServer server = serverMap.get(key);
             if (server == null) {
                 synchronized (this) {
                     server = serverMap.get(key);
                     if (server == null) {
+                        // 调用createServer()方法创建ProtocolServer对象
                         serverMap.put(key, createServer(url));
                     }
                 }
             } else {
-                // server supports reset, use together with override
+                // 如果已有ProtocolServer实例, 则尝试根据URL信息重置ProtocolServer
                 server.reset(url);
             }
         }
@@ -329,12 +340,25 @@ public class DubboProtocol extends AbstractProtocol {
 
     private ProtocolServer createServer(URL url) {
         url = URLBuilder.from(url)
-                // send readonly event when server closes, it's enabled by default
+                /**
+                 * send readonly event when server closes, it's enabled by default
+                 * CHANNEL_READONLYEVENT_SENT_KEY 参数值, 默认值为 true, 表示 ReadOnly 请求
+                 * 需要阻塞等待响应返回.在Server关闭的时候, 只能发送ReadOnly请求, 这些 ReadOnly
+                 * 请求由这里设置的 CHANNEL_READONLYEVENT_SENT_KEY 参数值决定是否需要等待响应返回
+                 */
                 .addParameterIfAbsent(CHANNEL_READONLYEVENT_SENT_KEY, Boolean.TRUE.toString())
-                // enable heartbeat by default
+                // HEARTBEAT_KEY 参数值, 默认值为 60000, 表示默认的心跳时间间隔为 60 秒
                 .addParameterIfAbsent(HEARTBEAT_KEY, String.valueOf(DEFAULT_HEARTBEAT))
+                /**
+                 * CODEC_KEY参数值, 默认值为dubbo, 回顾Codec2接口中@Adaptive注解的参数, 都是获取该URL中的CODEC_KEY参数值
+                 */
                 .addParameter(CODEC_KEY, DubboCodec.NAME)
                 .build();
+
+        /**
+         * 检测 SERVER_KEY 参数指定的扩展实现名称是否合法, 默认值为 netty. 可以回顾 Transporter
+         * 接口中 @Adaptive 注解的参数, 它决定了 Transport 层使用的网络库实现, 默认使用 Netty 4 实现
+         */
         String str = url.getParameter(SERVER_KEY, DEFAULT_REMOTING_SERVER);
 
         if (str != null && str.length() > 0 && !ExtensionLoader.getExtensionLoader(Transporter.class).hasExtension(str)) {
@@ -343,11 +367,15 @@ public class DubboProtocol extends AbstractProtocol {
 
         ExchangeServer server;
         try {
+            /**
+             * 完成上述默认参数值的设置之后, 就可以通过 Exchangers 门面类创建 ExchangeServer, 并封装成 DubboProtocolServer 返回
+             */
             server = Exchangers.bind(url, requestHandler);
         } catch (RemotingException e) {
             throw new RpcException("Fail to start server(url: " + url + ") " + e.getMessage(), e);
         }
 
+        // 检测 CLIENT_KEY 参数指定的扩展实现名称是否合法, 同 SERVER_KEY 参数的检查流程
         str = url.getParameter(CLIENT_KEY);
         if (str != null && str.length() > 0) {
             Set<String> supportedTypes = ExtensionLoader.getExtensionLoader(Transporter.class).getSupportedExtensions();
@@ -499,7 +527,7 @@ public class DubboProtocol extends AbstractProtocol {
      * Check if the client list is all available
      *
      * @param referenceCountExchangeClients
-     * @return true-available，false-unavailable
+     * @return true-available, false-unavailable
      */
     private boolean checkClientCanUse(List<ReferenceCountExchangeClient> referenceCountExchangeClients) {
         if (CollectionUtils.isEmpty(referenceCountExchangeClients)) {

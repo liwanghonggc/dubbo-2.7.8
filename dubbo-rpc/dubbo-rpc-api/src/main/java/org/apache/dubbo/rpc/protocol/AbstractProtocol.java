@@ -41,19 +41,30 @@ import static org.apache.dubbo.common.constants.CommonConstants.VERSION_KEY;
 
 /**
  * abstract ProtocolSupport.
+ * AbstractProtocol提供了一些 Protocol 实现需要的公共能力以及公共字段
  */
 public abstract class AbstractProtocol implements Protocol {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
+    /**
+     * 用于存储出去的服务集合, 其中的 Key 通过 ProtocolUtils.serviceKey() 方法创建的服务标识,在 ProtocolUtils 中
+     * 维护了多层的 Map 结构. 首先按照 group 分组, 在实践中我们可以根据需求设置 group, 例如, 按照机房、地域等进行
+     * group 划分, 做到就近调用. 在GroupServiceKeyCache 中, 依次按照 serviceName、serviceVersion、port 进行分类,
+     * 最终缓存的 serviceKey 是前面三者拼接而成的
+     */
     protected final Map<String, Exporter<?>> exporterMap = new ConcurrentHashMap<String, Exporter<?>>();
 
     /**
      * <host:port, ProtocolServer>
+     * 记录了全部的 ProtocolServer 实例, 其中的 Key 是 host 和 port 组成的字符串, Value 是监听该地址的
+     * ProtocolServer. ProtocolServer 就是对 RemotingServer 的一层简单封装, 表示一个服务端
      */
     protected final Map<String, ProtocolServer> serverMap = new ConcurrentHashMap<>();
 
-    //TODO SoftReference
+    /**
+     * 服务引用的集合
+     */
     protected final Set<Invoker<?>> invokers = new ConcurrentHashSet<Invoker<?>>();
 
     protected static String serviceKey(URL url) {
@@ -69,6 +80,10 @@ public abstract class AbstractProtocol implements Protocol {
         return Collections.unmodifiableList(new ArrayList<>(serverMap.values()));
     }
 
+    /**
+     * AbstractProtocol 唯一实现的方法就是 destory() 方法, 其首先会遍历 Invokers 集合,
+     * 销毁全部的服务引用, 然后遍历全部的 exporterMap 集合, 销毁发布出去的服务
+     */
     @Override
     public void destroy() {
         for (Invoker<?> invoker : invokers) {
@@ -78,6 +93,7 @@ public abstract class AbstractProtocol implements Protocol {
                     if (logger.isInfoEnabled()) {
                         logger.info("Destroy reference: " + invoker.getUrl());
                     }
+                    // 关闭全部的服务引用
                     invoker.destroy();
                 } catch (Throwable t) {
                     logger.warn(t.getMessage(), t);
@@ -91,6 +107,7 @@ public abstract class AbstractProtocol implements Protocol {
                     if (logger.isInfoEnabled()) {
                         logger.info("Unexport service: " + exporter.getInvoker().getUrl());
                     }
+                    // 关闭暴露出去的服务
                     exporter.unexport();
                 } catch (Throwable t) {
                     logger.warn(t.getMessage(), t);
@@ -99,6 +116,10 @@ public abstract class AbstractProtocol implements Protocol {
         }
     }
 
+    /**
+     * AbstractProtocol 没有对 Protocol 的 export() 方法进行实现, 对 refer() 方法的
+     * 实现也是委托给了 protocolBindingRefer() 这个抽象方法, 然后由子类实现
+     */
     @Override
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
         return new AsyncToSyncInvoker<>(protocolBindingRefer(type, url));

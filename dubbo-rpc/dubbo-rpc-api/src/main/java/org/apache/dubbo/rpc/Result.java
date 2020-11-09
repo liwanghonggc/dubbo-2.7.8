@@ -43,12 +43,15 @@ import java.util.function.Function;
  * @serial Don't change the class name and package name.
  * @see org.apache.dubbo.rpc.Invoker#invoke(Invocation)
  * @see AppResponse
+ * 
+ * Result 接口是 Invoker.invoke() 方法的返回值, 抽象了一次调用的返回值, 其中包含了被调用方
+ * 返回值(或是异常)以及附加信息, 我们也可以添加回调方法, 在 RPC 调用方法结束时会触发这些回调
  */
 public interface Result extends Serializable {
 
     /**
      * Get invoke result.
-     *
+     * 获取/设置此次调用的返回值
      * @return result. if no result return null.
      */
     Object getValue();
@@ -57,7 +60,7 @@ public interface Result extends Serializable {
 
     /**
      * Get exception.
-     *
+     * 如果此次调用发生异常, 则可以通过下面三个方法获取
      * @return exception. if no exception return null.
      */
     Throwable getException();
@@ -81,7 +84,7 @@ public interface Result extends Serializable {
      * return getValue();
      * }
      * </code>
-     *
+     * recreate()方法是一个复合操作, 如果此次调用发生异常, 则直接抛出异常, 如果没有异常, 则返回结果
      * @return result.
      * @throws if has exception throw it.
      */
@@ -89,7 +92,7 @@ public interface Result extends Serializable {
 
     /**
      * get attachments.
-     *
+     * Result中同样可以携带附加信息
      * @return attachments.
      */
     Map<String, String> getAttachments();
@@ -175,7 +178,7 @@ public interface Result extends Serializable {
      * <p>
      * Just as the method name implies, this method will guarantee the callback being triggered under the same context as when the call was started,
      * see implementation in {@link Result#whenCompleteWithContext(BiConsumer)}
-     *
+     * 添加一个回调, 当RPC调用完成时, 会触发这里添加的回调
      * @param fn
      * @return
      */
@@ -183,6 +186,12 @@ public interface Result extends Serializable {
 
     <U> CompletableFuture<U> thenApply(Function<Result, ? extends U> fn);
 
+    /**
+     * 阻塞线程, 等待此次RPC调用完成(或是超时)
+     * @return
+     * @throws InterruptedException
+     * @throws ExecutionException
+     */
     Result get() throws InterruptedException, ExecutionException;
 
     Result get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException;

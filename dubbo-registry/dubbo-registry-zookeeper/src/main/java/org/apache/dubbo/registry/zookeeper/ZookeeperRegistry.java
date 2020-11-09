@@ -73,6 +73,11 @@ public class ZookeeperRegistry extends FailbackRegistry {
 
     private final ZookeeperClient zkClient;
 
+    /**
+     * 在 ZookeeperRegistry 的构造方法中, 会通过 ZookeeperTransporter 创建 ZookeeperClient 实例并连接到 Zookeeper 集群,
+     * 同时还会添加一个连接状态的监听器。在该监听器中主要关注RECONNECTED 状态和 NEW_SESSION_CREATED 状态, 在当前 Dubbo 节点与
+     * Zookeeper 的连接恢复或是 Session 恢复的时候, 会重新进行注册/订阅, 防止数据丢失
+     */
     public ZookeeperRegistry(URL url, ZookeeperTransporter zookeeperTransporter) {
         super(url);
         if (url.isAnyHost()) {
@@ -123,9 +128,15 @@ public class ZookeeperRegistry extends FailbackRegistry {
         }
     }
 
+    /**
+     * doRegister() 方法和 doUnregister() 方法的实现都是通过 ZookeeperClient 找到合适的路径, 然后创建(或删除)相应的 ZNode 节点.
+     * 这里唯一需要注意的是, doRegister() 方法注册 Provider URL 的时候, 会根据 dynamic 参数决定创建临时 ZNode 节点还是持久 ZNode
+     * 节点(默认创建临时 ZNode 节点), 这样当 Provider 端与 Zookeeper 会话关闭时, 可以快速将变更推送到 Consumer 端
+     */
     @Override
     public void doRegister(URL url) {
         try {
+            // 分析下toUrlPath, 一层一层递进
             zkClient.create(toUrlPath(url), url.getParameter(DYNAMIC_KEY, true));
         } catch (Throwable e) {
             throw new RpcException("Failed to register " + url + " to zookeeper " + getUrl() + ", cause: " + e.getMessage(), e);
@@ -141,23 +152,33 @@ public class ZookeeperRegistry extends FailbackRegistry {
         }
     }
 
+    /**
+     * doSubscribe() 方法的核心是通过 ZookeeperClient 在指定的 path 上添加 ChildListener 监听器, 当订阅的节点发现变化的时候,
+     * 会通过 ChildListener 监听器触发 notify() 方法, 在 notify() 方法中会触发传入的 NotifyListener 监听器
+     */
     @Override
     public void doSubscribe(final URL url, final NotifyListener listener) {
         try {
             if (ANY_VALUE.equals(url.getServiceInterface())) {
+                // 获取根节点
                 String root = toRootPath();
+                // 获取NotifyListener对应的ChildListener
                 ConcurrentMap<NotifyListener, ChildListener> listeners = zkListeners.computeIfAbsent(url, k -> new ConcurrentHashMap<>());
                 ChildListener zkListener = listeners.computeIfAbsent(listener, k -> (parentPath, currentChilds) -> {
                     for (String child : currentChilds) {
                         child = URL.decode(child);
+                        // 记录该节点已经订阅过
                         if (!anyServices.contains(child)) {
                             anyServices.add(child);
+                            // 该ChildListener要做的就是触发对具体Service节点的订阅
                             subscribe(url.setPath(child).addParameters(INTERFACE_KEY, child,
                                     Constants.CHECK_KEY, String.valueOf(false)), k);
                         }
                     }
                 });
+                // 保证根节点存在
                 zkClient.create(root, false);
+                // 第一次订阅的时候, 要处理当前已有的Service层节点
                 List<String> services = zkClient.addChildListener(root, zkListener);
                 if (CollectionUtils.isNotEmpty(services)) {
                     for (String service : services) {
@@ -169,15 +190,23 @@ public class ZookeeperRegistry extends FailbackRegistry {
                 }
             } else {
                 List<URL> urls = new ArrayList<>();
+                // 遍历所有要订阅的path
                 for (String path : toCategoriesPath(url)) {
+                    // 订阅URL对应的Listener集合
                     ConcurrentMap<NotifyListener, ChildListener> listeners = zkListeners.computeIfAbsent(url, k -> new ConcurrentHashMap<>());
+                    // 一个NotifyListener关联一个ChildListener, 这个ChildListener会回调ZookeeperRegistry.notify()方法, 其中会回调当前NotifyListener
                     ChildListener zkListener = listeners.computeIfAbsent(listener, k -> (parentPath, currentChilds) -> ZookeeperRegistry.this.notify(url, k, toUrlsWithEmpty(url, parentPath, currentChilds)));
+                   
+                    // 尝试创建持久节点, 主要是为了确保当前path在Zookeeper上存在
                     zkClient.create(path, false);
+                    // 这一个ChildListener会添加到多个path上
                     List<String> children = zkClient.addChildListener(path, zkListener);
                     if (children != null) {
+                        // 如果没有Provider注册, toUrlsWithEmpty()方法会返回empty协议的URL
                         urls.addAll(toUrlsWithEmpty(url, path, children));
                     }
                 }
+                // 初次订阅的时候, 会主动调用一次notify()方法, 通知NotifyListener处理当前已有的URL等注册数据
                 notify(url, listener, urls);
             }
         } catch (Throwable e) {
@@ -185,6 +214,10 @@ public class ZookeeperRegistry extends FailbackRegistry {
         }
     }
 
+    /**
+     * ZookeeperRegistry 提供的 doUnsubscribe() 方法实现会将 URL 和 NotifyListener
+     * 对应的 ChildListener 从相关的 path 上删除, 从而达到不再监听该 path 的效果
+     */
     @Override
     public void doUnsubscribe(URL url, NotifyListener listener) {
         ConcurrentMap<NotifyListener, ChildListener> listeners = zkListeners.get(url);

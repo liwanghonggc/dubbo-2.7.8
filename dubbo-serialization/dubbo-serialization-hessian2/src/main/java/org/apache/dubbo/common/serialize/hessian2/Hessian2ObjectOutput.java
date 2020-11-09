@@ -30,12 +30,17 @@ import java.io.OutputStream;
 public class Hessian2ObjectOutput implements ObjectOutput {
 
     private static ThreadLocal<Hessian2Output> OUTPUT_TL = ThreadLocal.withInitial(() -> {
+        // 初始化Hessian2Output对象
         Hessian2Output h2o = new Hessian2Output(null);
         h2o.setSerializerFactory(Hessian2FactoryInitializer.getInstance().getSerializerFactory());
         h2o.setCloseStreamOnClose(true);
         return h2o;
     });
 
+    /**
+     * Hessian2ObjectOutput 中会封装一个 Hessian2Output 对象, 需要注意, 这个对象是 ThreadLocal 的, 与线程绑定.
+     * 在 DataOutput 接口以及 ObjectOutput 接口中, 序列化各类型数据的方法都会委托给 Hessian2Output 对象的相应方法完成
+     */
     private final Hessian2Output mH2o;
 
     public Hessian2ObjectOutput(OutputStream os) {

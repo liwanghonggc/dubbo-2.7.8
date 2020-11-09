@@ -47,7 +47,9 @@ import static org.apache.dubbo.remoting.transport.netty4.NettyEventLoopFactory.e
 import static org.apache.dubbo.remoting.transport.netty4.NettyEventLoopFactory.socketChannelClass;
 
 /**
- * NettyClient.
+ * 基于 Netty 4 实现的 NettyClient, 它继承了 AbstractClient 抽象类, 实现了上述四个 do*() 抽象方法,
+ * 我们这里重点关注 doOpen() 方法和 doConnect() 方法。在 NettyClient 的 doOpen() 方法中会通过
+ * Bootstrap 构建客户端, 其中会完成连接超时时间、keepalive 等参数的设置, 以及 ChannelHandler 的创建和注册
  */
 public class NettyClient extends AbstractClient {
 
@@ -89,7 +91,9 @@ public class NettyClient extends AbstractClient {
      */
     @Override
     protected void doOpen() throws Throwable {
+        // 创建NettyClientHandler
         final NettyClientHandler nettyClientHandler = new NettyClientHandler(getUrl(), this);
+        // 创建Bootstrap
         bootstrap = new Bootstrap();
         bootstrap.group(NIO_EVENT_LOOP_GROUP)
                 .option(ChannelOption.SO_KEEPALIVE, true)
@@ -98,18 +102,22 @@ public class NettyClient extends AbstractClient {
                 //.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, getTimeout())
                 .channel(socketChannelClass());
 
+        // 设置连接超时时间, 这里使用到AbstractEndpoint中的connectTimeout字段
         bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, Math.max(3000, getConnectTimeout()));
         bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
             @Override
             protected void initChannel(SocketChannel ch) throws Exception {
+                // 心跳请求的时间间隔
                 int heartbeatInterval = UrlUtils.getHeartbeat(getUrl());
 
                 if (getUrl().getParameter(SSL_ENABLED_KEY, false)) {
                     ch.pipeline().addLast("negotiation", SslHandlerInitializer.sslClientHandler(getUrl(), nettyClientHandler));
                 }
 
+                // 通过NettyCodecAdapter创建Netty中的编解码器
                 NettyCodecAdapter adapter = new NettyCodecAdapter(getCodec(), getUrl(), NettyClient.this);
+                // 注册ChannelHandler
                 ch.pipeline()//.addLast("logging",new LoggingHandler(LogLevel.INFO))//for debug
                         .addLast("decoder", adapter.getDecoder())
                         .addLast("encoder", adapter.getEncoder())

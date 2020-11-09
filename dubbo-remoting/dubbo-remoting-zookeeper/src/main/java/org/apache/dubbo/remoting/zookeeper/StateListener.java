@@ -16,6 +16,9 @@
  */
 package org.apache.dubbo.remoting.zookeeper;
 
+/**
+ * 主要负责监听 Dubbo 与 Zookeeper 集群的连接状态, 包括 SESSION_LOST、CONNECTED、RECONNECTED、SUSPENDED 和 NEW_SESSION_CREATED
+ */
 public interface StateListener {
 
     int SESSION_LOST = 0;

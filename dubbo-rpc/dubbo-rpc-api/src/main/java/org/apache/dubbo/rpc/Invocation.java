@@ -27,14 +27,20 @@ import java.util.stream.Stream;
  * @serial Don't change the class name and package name.
  * @see org.apache.dubbo.rpc.Invoker#invoke(Invocation)
  * @see org.apache.dubbo.rpc.RpcInvocation
+ * 
+ * Invocation 接口是 Invoker.invoke() 方法的参数, 抽象了一次 RPC 调用的目标服务和方法信息、相关参数信息、具体的参数值以及一些附加信息
  */
 public interface Invocation {
 
+    /**
+     * 调用Service的唯一标识
+     * @return
+     */
     String getTargetServiceUniqueName();
 
     /**
      * get method name.
-     *
+     * 调用的方法名称
      * @return method name.
      * @serial
      */
@@ -43,13 +49,14 @@ public interface Invocation {
 
     /**
      * get the interface name
+     * 调用的服务名称
      * @return
      */
     String getServiceName();
 
     /**
      * get parameter types.
-     *
+     * 参数类型集合
      * @return parameter types.
      * @serial
      */
@@ -57,7 +64,7 @@ public interface Invocation {
 
     /**
      * get parameter's signature, string representation of parameter types.
-     *
+     * 参数签名集合
      * @return parameter's signature
      */
     default String[] getCompatibleParamSignatures() {
@@ -68,7 +75,7 @@ public interface Invocation {
 
     /**
      * get arguments.
-     *
+     * 此次调用具体的参数值
      * @return arguments.
      * @serial
      */
@@ -76,7 +83,7 @@ public interface Invocation {
 
     /**
      * get attachments.
-     *
+     * Invocation可以携带一个KV信息作为附加信息, 一并传递给Provider, 注意与 attribute 的区分
      * @return attachments.
      * @serial
      */
@@ -125,7 +132,7 @@ public interface Invocation {
 
     /**
      * get the invoker in current context.
-     *
+     * 此次调用关联的Invoker对象
      * @return invoker.
      * @transient
      */

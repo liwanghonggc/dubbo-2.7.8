@@ -33,7 +33,9 @@ import io.netty.handler.timeout.IdleStateEvent;
 import static org.apache.dubbo.common.constants.CommonConstants.HEARTBEAT_EVENT;
 
 /**
- * NettyClientHandler
+ * NettyClientHandler 的实现方法与上一课时介绍的 NettyServerHandler 类似, 同样是实现了 Netty 中的 ChannelDuplexHandler,
+ * 其中会将所有方法委托给 NettyClient 关联的 ChannelHandler 对象进行处理. 两者在 userEventTriggered() 方法的实现上有所不同,
+ * NettyServerHandler 在收到 IdleStateEvent 事件时会断开连接, 而 NettyClientHandler 则会发送心跳消息
  */
 @io.netty.channel.ChannelHandler.Sharable
 public class NettyClientHandler extends ChannelDuplexHandler {
@@ -121,6 +123,7 @@ public class NettyClientHandler extends ChannelDuplexHandler {
                 req.setVersion(Version.getProtocolVersion());
                 req.setTwoWay(true);
                 req.setEvent(HEARTBEAT_EVENT);
+                // 发送心跳请求
                 channel.send(req);
             } finally {
                 NettyChannel.removeChannelIfDisconnected(ctx.channel());

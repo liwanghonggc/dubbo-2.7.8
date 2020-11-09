@@ -22,6 +22,11 @@ import org.apache.dubbo.common.Resetable;
  * Remoting Client. (API/SPI, Prototype, ThreadSafe)
  * <p>
  * <a href="http://en.wikipedia.org/wiki/Client%E2%80%93server_model">Client/Server</a>
+ * 
+ * Client 和 RemotingServer 两个接口, 分别抽象了客户端和服务端, 两者都继承了 Channel、Resetable 等接口,
+ * 也就是说两者都具备了读写数据能力. Client 和 Server 本身都是 Endpoint, 只不过在语义上区分了请求和响应的职责,
+ * 两者都具备发送的能力, 所以都继承了 Endpoint 接口.Client 和 Server 的主要区别是 Client 只能关联一个 Channel,
+ * 而 Server 可以接收多个 Client 发起的 Channel 连接. 所以在 RemotingServer 接口中定义了查询 Channel 的相关方法
  *
  * @see org.apache.dubbo.remoting.Transporter#connect(org.apache.dubbo.common.URL, ChannelHandler)
  */

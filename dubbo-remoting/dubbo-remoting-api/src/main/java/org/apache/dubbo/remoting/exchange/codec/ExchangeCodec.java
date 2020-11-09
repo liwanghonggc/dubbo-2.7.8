@@ -42,20 +42,40 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * ExchangeCodec.
+ * 它在 TelnetCodec 的基础之上, 添加了处理协议头的能力.
  */
 public class ExchangeCodec extends TelnetCodec {
 
-    // header length.
+    /**
+     * 协议头的字节数, 16 字节, 即 128 位
+     */
     protected static final int HEADER_LENGTH = 16;
-    // magic header.
+
+    /**
+     * 协议头的字节数, 16 字节, 即 128 位
+     */
     protected static final short MAGIC = (short) 0xdabb;
     protected static final byte MAGIC_HIGH = Bytes.short2bytes(MAGIC)[0];
     protected static final byte MAGIC_LOW = Bytes.short2bytes(MAGIC)[1];
-    // message flag.
+
+    /**
+     * 用于设置 Req/Res 标志位
+     */
     protected static final byte FLAG_REQUEST = (byte) 0x80;
+
+    /**
+     * 用于设置 2Way 标志位
+     */
     protected static final byte FLAG_TWOWAY = (byte) 0x40;
+
+    /**
+     * 用于设置 Event 标志位
+     */
     protected static final byte FLAG_EVENT = (byte) 0x20;
+
+    /**
+     * 用于获取序列化类型的标志位的掩码
+     */
     protected static final int SERIALIZATION_MASK = 0x1f;
     private static final Logger logger = LoggerFactory.getLogger(ExchangeCodec.class);
 
@@ -63,6 +83,9 @@ public class ExchangeCodec extends TelnetCodec {
         return MAGIC;
     }
 
+    /**
+     * 在 ExchangeCodec 的 encode() 方法中会根据需要编码的消息类型进行分类, 其中 encodeRequest() 方法专门对 Request 对象进行编码
+     */
     @Override
     public void encode(Channel channel, ChannelBuffer buffer, Object msg) throws IOException {
         if (msg instanceof Request) {
@@ -70,10 +93,15 @@ public class ExchangeCodec extends TelnetCodec {
         } else if (msg instanceof Response) {
             encodeResponse(channel, buffer, (Response) msg);
         } else {
+            // 对于既不是 Request, 也不是 Response 的消息, ExchangeCodec 会使用从父类继承下来的能力来编码, 例如对 telnet 命令的编码
             super.encode(channel, buffer, msg);
         }
     }
 
+    /**
+     * ExchangeCodec 的 decode() 方法是 encode() 方法的逆过程, 会先检查魔数, 然后读取协议头
+     * 和后续消息的长度, 最后根据协议头中的各个标志位构造相应的对象, 以及反序列化数据
+     */
     @Override
     public Object decode(Channel channel, ChannelBuffer buffer) throws IOException {
         int readable = buffer.readableBytes();
@@ -209,32 +237,38 @@ public class ExchangeCodec extends TelnetCodec {
 
     protected void encodeRequest(Channel channel, ChannelBuffer buffer, Request req) throws IOException {
         Serialization serialization = getSerialization(channel);
-        // header.
+        // 该数组用来暂存协议头
         byte[] header = new byte[HEADER_LENGTH];
-        // set magic number.
+        // 在header数组的前两个字节中写入魔数
         Bytes.short2bytes(MAGIC, header);
 
-        // set request and serialization flag.
+        // 根据当前使用的序列化设置协议头中的序列化标志位
         header[2] = (byte) (FLAG_REQUEST | serialization.getContentTypeId());
 
+        // 设置协议头中的2Way标志位
         if (req.isTwoWay()) {
             header[2] |= FLAG_TWOWAY;
         }
+        // 设置协议头中的Event标志位
         if (req.isEvent()) {
             header[2] |= FLAG_EVENT;
         }
 
-        // set request id.
+        // 将请求ID记录到请求头中
         Bytes.long2bytes(req.getId(), header, 4);
 
-        // encode request data.
+        // 下面开始序列化请求, 并统计序列化后的字节数, 首先使用savedWriteIndex记录ChannelBuffer当前的写入位置
         int savedWriteIndex = buffer.writerIndex();
+        // 将写入位置后移16字节
         buffer.writerIndex(savedWriteIndex + HEADER_LENGTH);
+        // 根据选定的序列化方式对请求进行序列化
         ChannelBufferOutputStream bos = new ChannelBufferOutputStream(buffer);
         ObjectOutput out = serialization.serialize(channel.getUrl(), bos);
+        // 对事件进行序列化
         if (req.isEvent()) {
             encodeEventData(channel, out, req.getData());
         } else {
+            // 对Dubbo请求进行序列化, 具体在DubboCodec中实现
             encodeRequestData(channel, out, req.getData(), req.getVersion());
         }
         out.flushBuffer();
@@ -242,14 +276,21 @@ public class ExchangeCodec extends TelnetCodec {
             ((Cleanable) out).cleanup();
         }
         bos.flush();
+        // 完成序列化
         bos.close();
+
+        // 统计请求序列化之后, 得到的字节数
         int len = bos.writtenBytes();
+        // 限制一下请求的字节长度
         checkPayload(channel, len);
+        // 将字节数写入header数组中
         Bytes.int2bytes(len, header, 12);
 
-        // write
+        // 下面调整ChannelBuffer当前的写入位置, 并将协议头写入Buffer中
         buffer.writerIndex(savedWriteIndex);
-        buffer.writeBytes(header); // write header.
+        // write header.
+        buffer.writeBytes(header);
+        // 最后, 将ChannelBuffer的写入位置移动到正确的位置
         buffer.writerIndex(savedWriteIndex + HEADER_LENGTH + len);
     }
 

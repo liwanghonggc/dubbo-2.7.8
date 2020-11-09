@@ -22,6 +22,7 @@ import org.apache.dubbo.remoting.RemotingServer;
 /**
  * Distinct from {@link RemotingServer}, each protocol holds one or more ProtocolServers(the number usually decides by port numbers),
  * while each ProtocolServer holds zero or one RemotingServer.
+ * ProtocolServer 接口是对前文介绍的 RemotingServer 的一层简单封装
  */
 public interface ProtocolServer {
 

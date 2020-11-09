@@ -23,7 +23,9 @@ import org.apache.dubbo.rpc.protocol.AbstractExporter;
 import java.util.Map;
 
 /**
- * DubboExporter
+ * DubboExporter 也比较简单, 其中会维护底层 Invoker 对应的 ServiceKey 以及 DubboProtocol
+ * 中的 exportMap 集合, 在其 unexport() 方法中除了会调用父类 AbstractExporter 的 unexport()
+ * 方法之外, 还会清理该 DubboExporter 实例在 exportMap 中相应的元素
  */
 public class DubboExporter<T> extends AbstractExporter<T> {
 

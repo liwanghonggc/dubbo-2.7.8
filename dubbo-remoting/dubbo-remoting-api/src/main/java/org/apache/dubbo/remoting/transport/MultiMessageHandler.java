@@ -22,8 +22,9 @@ import org.apache.dubbo.remoting.RemotingException;
 import org.apache.dubbo.remoting.exchange.support.MultiMessage;
 
 /**
- *
- * @see MultiMessage
+ *专门处理 MultiMessage 的 ChannelHandler 实现. MultiMessage 是 Exchange 层的一种消息类型,
+ * 它其中封装了多个消息. 在 MultiMessageHandler 收到 MultiMessage 消息的时候, received()
+ * 方法会遍历其中的所有消息, 并交给底层的 ChannelHandler 对象进行处理
  */
 public class MultiMessageHandler extends AbstractChannelHandlerDelegate {
 

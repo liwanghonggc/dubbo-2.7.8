@@ -78,16 +78,34 @@ public class Response {
      */
     public static final byte SERVER_THREADPOOL_EXHAUSTED_ERROR = 100;
 
+    /**
+     * 响应ID, 与相应请求的ID一致
+     */
     private long mId = 0;
 
+    /**
+     * 当前协议的版本号, 与请求消息的版本号一致
+     */
     private String mVersion;
 
+    /**
+     * 响应状态码, 有OK、CLIENT_TIMEOUT、SERVER_TIMEOUT等10多个可选值
+     */
     private byte mStatus = OK;
 
+    /**
+     * 事件标识, 例如心跳请求、只读请求等, 都会带有这个标识
+     */
     private boolean mEvent = false;
 
+    /**
+     * 可读的错误响应消息
+     */
     private String mErrorMsg;
 
+    /**
+     * 响应体
+     */
     private Object mResult;
 
     public Response() {

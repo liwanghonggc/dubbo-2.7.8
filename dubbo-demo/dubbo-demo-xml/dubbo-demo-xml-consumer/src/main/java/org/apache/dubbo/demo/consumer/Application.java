@@ -33,5 +33,8 @@ public class Application {
         DemoService demoService = context.getBean("demoService", DemoService.class);
         CompletableFuture<String> hello = demoService.sayHelloAsync("world");
         System.out.println("result: " + hello.get());
+
+        String res = demoService.sayHello("world");
+        System.out.println("result: " + res);
     }
 }
