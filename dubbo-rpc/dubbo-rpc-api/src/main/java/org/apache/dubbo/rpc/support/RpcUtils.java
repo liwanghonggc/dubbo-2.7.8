@@ -198,11 +198,22 @@ public class RpcUtils {
         }
     }
 
+    /**
+     *  oneway 请求的方式是send() 方法, 而后面发送 twoway 请求的方式是 request() 方法. 通过之前的分析我们知道,
+     *  request() 方法会相应地创建 DefaultFuture 对象以及检测超时的定时任务, 而 send() 方法则不会创建这些东西,
+     *  它是直接将 Invocation 包装成 oneway 类型的 Request 发送出去。
+     *
+     * 在服务端的 HeaderExchangeHandler.receive() 方法中, 会针对 oneway 请求和 twoway 请求执行不同的分支处理
+     * 1) twoway 请求由 handleRequest() 方法进行处理, 其中会关注调用结果并形成 Response 返回给客户端
+     * 2) oneway 请求则直接交给上层的 DubboProtocol.requestHandler, 完成方法调用之后, 不会返回任何 Response
+     */
     public static boolean isOneway(URL url, Invocation inv) {
         boolean isOneway;
+        // 首先关注的是Invocation中"return"这个附加属性
         if (Boolean.FALSE.toString().equals(inv.getAttachment(RETURN_KEY))) {
             isOneway = true;
         } else {
+            // 之后关注URL中, 调用方法对应的"return"配置
             isOneway = !url.getMethodParameter(getMethodName(inv), RETURN_KEY, true);
         }
         return isOneway;

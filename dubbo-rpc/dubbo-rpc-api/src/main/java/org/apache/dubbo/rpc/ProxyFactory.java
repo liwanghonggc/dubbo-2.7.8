@@ -52,11 +52,6 @@ public interface ProxyFactory {
     /**
      * create invoker.
      * 将传入的代理对象封装成Invoker对象, 可以暂时理解为getProxy()的逆操作
-     * @param <T>
-     * @param proxy
-     * @param type
-     * @param url
-     * @return invoker
      */
     @Adaptive({PROXY_KEY})
     <T> Invoker<T> getInvoker(T proxy, Class<T> type, URL url) throws RpcException;

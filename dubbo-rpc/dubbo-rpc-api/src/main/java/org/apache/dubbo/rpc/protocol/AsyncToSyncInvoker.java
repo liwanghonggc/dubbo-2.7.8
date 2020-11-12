@@ -47,6 +47,9 @@ public class AsyncToSyncInvoker<T> implements Invoker<T> {
         return invoker.getInterface();
     }
 
+    /**
+     * AsyncToSyncInvoker 是 Invoker 的装饰器, 负责将异步调用转换成同步调用
+     */
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
         Result asyncResult = invoker.invoke(invocation);
@@ -57,6 +60,8 @@ public class AsyncToSyncInvoker<T> implements Invoker<T> {
                  * NOTICE!
                  * must call {@link java.util.concurrent.CompletableFuture#get(long, TimeUnit)} because
                  * {@link java.util.concurrent.CompletableFuture#get()} was proved to have serious performance drop.
+                 * 调用get()方法, 阻塞等待响应返回.  AsyncRpcResult.get() 方法底层调用的就是 responseFuture 字段的
+                 * get() 方法, 对于同步请求来说, 会先调用 ThreadlessExecutor.waitAndDrain() 方法阻塞等待响应返回
                  */
                 asyncResult.get(Integer.MAX_VALUE, TimeUnit.MILLISECONDS);
             }

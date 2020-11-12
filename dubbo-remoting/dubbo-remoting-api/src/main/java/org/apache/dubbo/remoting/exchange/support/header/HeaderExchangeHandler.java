@@ -192,7 +192,11 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
     /**
      * 当响应传递到 HeaderExchangeHandler 的时候, 会通过调用 handleResponse() 方法进行处理,
      * 其中调用了 DefaultFuture.received() 方法, 该方法会找到响应关联的 DefaultFuture 对象
-     * (根据请求 ID 从 FUTURES 集合查找)并调用 doReceived() 方法, 将 DefaultFuture 设置为完成状态
+     * (根据请求 ID 从 FUTURES 集合查找)并调用 doReceived() 方法, 将 DefaultFuture 设置为完成状态.
+     * 
+     * 在服务端的 HeaderExchangeHandler.receive() 方法中, 会针对 oneway 请求和 twoway 请求执行不同的分支处理:
+     * 1) twoway 请求由 handleRequest() 方法进行处理, 其中会关注调用结果并形成 Response 返回给客户端
+     * 2) oneway 请求则直接交给上层的 DubboProtocol.requestHandler, 完成方法调用之后, 不会返回任何 Response
      */
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
@@ -215,7 +219,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
                     handleRequest(exchangeChannel, request);
                 } else {
                     /**
-                     * 单向请求直接委托给上层 ExchangeHandler 实现的 received() 方法进行处理,
+                     * 单向请求直接委托给上层 ExchangeHandler(DubboProtocol.requestHandler) 实现的 received() 方法进行处理,
                      * 由于不需要响应, HeaderExchangeHandler 不会关注处理结果
                      */
                     handler.received(exchangeChannel, request.getData());

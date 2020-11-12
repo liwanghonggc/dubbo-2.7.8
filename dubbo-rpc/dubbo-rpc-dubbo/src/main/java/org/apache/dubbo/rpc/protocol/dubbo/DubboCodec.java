@@ -45,7 +45,11 @@ import static org.apache.dubbo.rpc.protocol.dubbo.Constants.DECODE_IN_IO_THREAD_
 import static org.apache.dubbo.rpc.protocol.dubbo.Constants.DEFAULT_DECODE_IN_IO_THREAD;
 
 /**
- * Dubbo codec.
+ * DubboCountCodec、DubboCodec 都实现了Codec2 接口, 其中 DubboCodec 是 ExchangeCodec 的子类.
+ * ExchangeCodec 只处理了 Dubbo 协议的请求头, 而 DubboCodec 则是通过继承的方式, 在 ExchangeCodec
+ * 基础之上, 添加了解析 Dubbo 消息体的功能。在第介绍ExchangeCodec 实现的时候, 我们重点分析了
+ * encodeRequest() 方法, 即 Request 请求的编码实现, 其中会调用 encodeRequestData() 方法完成请求体的编码。
+ * DubboCodec 中就覆盖了 encodeRequestData() 方法, 按照 Dubbo 协议的格式编码 Request 请求体
  */
 public class DubboCodec extends ExchangeCodec {
 
@@ -83,6 +87,7 @@ public class DubboCodec extends ExchangeCodec {
                         data = decodeEventData(channel, in);
                     } else {
                         DecodeableRpcResult result;
+                        // 这里会检查DECODE_IN_IO_THREAD_KEY参数
                         if (channel.getUrl().getParameter(DECODE_IN_IO_THREAD_KEY, DEFAULT_DECODE_IN_IO_THREAD)) {
                             result = new DecodeableRpcResult(channel, res, is,
                                     (Invocation) getRequestData(id), proto);
@@ -122,15 +127,24 @@ public class DubboCodec extends ExchangeCodec {
                     data = decodeEventData(channel, in);
                 } else {
                     DecodeableRpcInvocation inv;
+                    // 直接调用decode()方法在当前IO线程中解码
                     if (channel.getUrl().getParameter(DECODE_IN_IO_THREAD_KEY, DEFAULT_DECODE_IN_IO_THREAD)) {
                         inv = new DecodeableRpcInvocation(channel, req, is, proto);
+                        // 直接调用decode()方法在当前IO线程中解码
                         inv.decode();
                     } else {
+                        /**
+                         * 这里只是读取数据, 不会调用decode()方法在当前IO线程中进行解码. 如果不在 DubboCodec 中解码, 那会
+                         * 在哪里解码呢? 之前介绍的 DecodeHandler(Transport 层), 它的 received() 方法也是可以进行解码的,
+                         * 另外, DecodeableRpcInvocation 中有一个 hasDecoded 字段来判断当前是否已经完成解码, 这样, 三者
+                         * 配合就可以根据 DECODE_IN_IO_THREAD_KEY 参数决定执行解码操作的线程了
+                         */
                         inv = new DecodeableRpcInvocation(channel, req,
                                 new UnsafeByteArrayInputStream(readMessageData(is)), proto);
                     }
                     data = inv;
                 }
+                // 设置到Request请求的data字段
                 req.setData(data);
             } catch (Throwable t) {
                 if (log.isWarnEnabled()) {
@@ -166,25 +180,33 @@ public class DubboCodec extends ExchangeCodec {
 
     @Override
     protected void encodeRequestData(Channel channel, ObjectOutput out, Object data, String version) throws IOException {
+        // 请求体相关的内容, 都封装在了RpcInvocation, 分析下RpcInvocation
         RpcInvocation inv = (RpcInvocation) data;
 
+        // 写入版本号
         out.writeUTF(version);
         // https://github.com/apache/dubbo/issues/6138
         String serviceName = inv.getAttachment(INTERFACE_KEY);
         if (serviceName == null) {
             serviceName = inv.getAttachment(PATH_KEY);
         }
+        // 写入服务名称
         out.writeUTF(serviceName);
+        // 写入Service版本号
         out.writeUTF(inv.getAttachment(VERSION_KEY));
 
+        // 写入方法名称
         out.writeUTF(inv.getMethodName());
+        // 写入参数类型列表
         out.writeUTF(inv.getParameterTypesDesc());
+        // 依次写入全部参数
         Object[] args = inv.getArguments();
         if (args != null) {
             for (int i = 0; i < args.length; i++) {
                 out.writeObject(encodeInvocationArgument(channel, inv, i));
             }
         }
+        // 依次写入全部的附加信息
         out.writeAttachments(inv.getObjectAttachments());
     }
 

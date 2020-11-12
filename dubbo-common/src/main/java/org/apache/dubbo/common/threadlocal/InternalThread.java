@@ -18,7 +18,10 @@
 package org.apache.dubbo.common.threadlocal;
 
 /**
- * InternalThread
+ * InternalThread它继承了 Thread 类, Dubbo 的线程工厂 NamedInternalThreadFactory 创建的线程类
+ * 其实都是 InternalThread 实例对象, 你可以回顾前面第 19 课时介绍的 ThreadPool 接口实现, 它们都是
+ * 通过 NamedInternalThreadFactory 这个工厂类来创建线程的. InternalThread 中主要提供了
+ * setThreadLocalMap() 和 threadLocalMap() 两个方法,用于设置和获取 InternalThreadLocalMap
  */
 public class InternalThread extends Thread {
 

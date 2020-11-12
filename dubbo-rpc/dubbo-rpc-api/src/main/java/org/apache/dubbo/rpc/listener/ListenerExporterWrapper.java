@@ -36,6 +36,9 @@ public class ListenerExporterWrapper<T> implements Exporter<T> {
 
     private final List<ExporterListener> listeners;
 
+    /**
+     * ListenerExporterWrapper 的构造方法中会循环调用全部 ExporterListener 的 exported() 方法, 通知其服务暴露的事件
+     */
     public ListenerExporterWrapper(Exporter<T> exporter, List<ExporterListener> listeners) {
         if (exporter == null) {
             throw new IllegalArgumentException("exporter == null");

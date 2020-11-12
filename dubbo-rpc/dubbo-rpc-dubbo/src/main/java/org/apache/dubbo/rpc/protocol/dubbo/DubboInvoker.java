@@ -79,13 +79,32 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
         this.invokers = invokers;
     }
 
+    /**
+     * 通过前面对 DubboProtocol 的分析我们知道, protocolBindingRefer() 方法会根据调用的业务接口类型以及
+     * URL 创建底层的 ExchangeClient 集合, 然后封装成 DubboInvoker 对象返回. DubboInvoker 是 AbstractInvoker
+     * 的实现类, 在其 doInvoke() 方法中首先会选择此次调用使用 ExchangeClient 对象, 然后确定此次调用是否需要
+     * 返回值, 最后调用 ExchangeClient.request() 方法发送请求, 对返回的 Future 进行简单封装并返回
+     * 
+     * 在 Client 端发送请求时, 首先会创建对应的 DefaultFuture(其中记录了请求 ID 等信息), 然后依赖 Netty
+     * 的异步发送特性将请求发送到 Server 端. 需要说明的是, 这整个发送过程是不会阻塞任何线程的. 之后, 将
+     * DefaultFuture 返回给上层, 在这个返回过程中, DefaultFuture 会被封装成 AsyncRpcResult, 同时也可以添加回调函数.
+     *
+     * 当 Client 端接收到响应结果的时候, 会交给关联的线程池(ExecutorService)或是业务线程(使用 ThreadlessExecutor 场景)
+     * 进行处理, 得到 Server 返回的真正结果. 拿到真正的返回结果后, 会将其设置到 DefaultFuture 中, 并调用 complete() 方法
+     * 将其设置为完成状态. 此时, 就会触发前面注册在 DefaulFuture 上的回调函数, 执行回调逻辑
+     *
+     * https://s0.lgstatic.com/i/image/M00/64/40/Ciqc1F-X8WuACaAKAAEb-X6qf4Y710.png
+     */
     @Override
     protected Result doInvoke(final Invocation invocation) throws Throwable {
         RpcInvocation inv = (RpcInvocation) invocation;
+        // 此次调用的方法名称
         final String methodName = RpcUtils.getMethodName(invocation);
+        // 向Invocation中添加附加信息, 这里将URL的path和version添加到附加信息中
         inv.setAttachment(PATH_KEY, getUrl().getPath());
         inv.setAttachment(VERSION_KEY, version);
 
+        // 选择一个ExchangeClient实例
         ExchangeClient currentClient;
         if (clients.length == 1) {
             currentClient = clients[0];
@@ -93,18 +112,26 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
             currentClient = clients[index.getAndIncrement() % clients.length];
         }
         try {
+            // 判断调用方式
             boolean isOneway = RpcUtils.isOneway(getUrl(), invocation);
+            // 根据调用的方法名称和配置计算此次调用的超时时间
             int timeout = calculateTimeout(invocation, methodName);
+            // 不需要关注返回值的请求
             if (isOneway) {
                 boolean isSent = getUrl().getMethodParameter(methodName, Constants.SENT_KEY, false);
                 currentClient.send(inv, isSent);
+                // 在发送完oneway 请求之后, 会立即创建一个已完成状态的 AsyncRpcResult 对象(主要是其中的 responseFuture 是已完成状态)
                 return AsyncRpcResult.newDefaultAsyncResult(invocation);
             } else {
+                // 需要关注返回值的请求
+                // 获取处理响应的线程池, 对于同步请求, 会使用ThreadlessExecutor. 对于异步请求, 则会使用共享的线程池
                 ExecutorService executor = getCallbackExecutor(getUrl(), inv);
+                // 使用上面选出的ExchangeClient执行request()方法, 将请求发送出去
                 CompletableFuture<AppResponse> appResponseFuture =
                         currentClient.request(inv, timeout, executor).thenApply(obj -> (AppResponse) obj);
                 // save for 2.6.x compatibility, for example, TraceFilter in Zipkin uses com.alibaba.xxx.FutureAdapter
                 FutureContext.getContext().setCompatibleFuture(appResponseFuture);
+                // 这里将AppResponse封装成AsyncRpcResult返回
                 AsyncRpcResult result = new AsyncRpcResult(appResponseFuture, inv);
                 result.setExecutor(executor);
                 return result;

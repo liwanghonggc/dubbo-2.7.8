@@ -30,9 +30,24 @@ import java.util.Set;
  * table, and it is useful when accessed frequently.
  * <p></p>
  * This design is learning from {@see io.netty.util.concurrent.FastThreadLocal} which is in Netty.
+ * 
+ * JDK 提供的 ThreadLocal 底层实现大致如下: 对于不同线程创建对应的 ThreadLocalMap, 用于存放线程绑定信息,
+ * 当用户调用ThreadLocal.get() 方法获取变量时, 底层会先获取当前线程 Thread, 然后获取绑定到当前线程 Thread
+ * 的 ThreadLocalMap, 最后将当前 ThreadLocal 对象作为 Key 去 ThreadLocalMap 表中获取线程绑定的数据. 
+ * ThreadLocal.set() 方法的逻辑与之类似, 首先会获取绑定到当前线程的 ThreadLocalMap, 然后将 ThreadLocal 
+ * 实例作为 Key、待存储的数据作为 Value 存储到 ThreadLocalMap 中. 
+ *
+ * Dubbo 的 InternalThreadLocal 与 JDK 提供的 ThreadLocal 功能类似, 只是底层实现略有不同, 其底层的 
+ * InternalThreadLocalMap 采用数组结构存储数据, 直接通过 index 获取变量, 相较于 Map 方式计算 hash 值的性能更好
  */
 public class InternalThreadLocal<V> {
 
+    /**
+     * InternalThreadLocal 的静态变量 VARIABLES_TO_REMOVE_INDEX 是调用InternalThreadLocalMap 的
+     * nextVariableIndex 方法得到的一个索引值, 在 InternalThreadLocalMap 数组的对应位置保存的是
+     * Set<InternalThreadLocal> 类型的集合, 也就是上面提到的“待删除集合”, 即绑定到当前线程所有的
+     * InternalThreadLocal, 这样就可以方便管理对象及内存的释放
+     */
     private static final int VARIABLES_TO_REMOVE_INDEX = InternalThreadLocalMap.nextVariableIndex();
 
     private final int index;
@@ -116,12 +131,18 @@ public class InternalThreadLocal<V> {
      */
     @SuppressWarnings("unchecked")
     public final V get() {
+        // 获取当前线程绑定的InternalThreadLocalMap
         InternalThreadLocalMap threadLocalMap = InternalThreadLocalMap.get();
+        // 根据当前InternalThreadLocal对象的index字段, 从InternalThreadLocalMap中读取相应的数据
         Object v = threadLocalMap.indexedVariable(index);
         if (v != InternalThreadLocalMap.UNSET) {
+            // 如果非UNSET, 则表示读取到了有效数据, 直接返回
             return (V) v;
         }
 
+        // 读取到UNSET值, 则会调用initialize()方法进行初始化, 其中首先会调用
+        // initialValue()方法进行初始化, 然后会调用前面介绍的setIndexedVariable()方法
+        // 和addToVariablesToRemove()方法存储初始化得到的值
         return initialize(threadLocalMap);
     }
 
@@ -140,13 +161,22 @@ public class InternalThreadLocal<V> {
 
     /**
      * Sets the value for the current thread.
+     * 在拿到 InternalThreadLocalMap 对象之后, 我们就可以调用其 setIndexedVariable() 方法和
+     * indexedVariable() 方法读写, 这里我们得结合InternalThreadLocal进行讲解. 在
+     * InternalThreadLocal 的构造方法中, 会使用 InternalThreadLocalMap.NEXT_INDEX
+     * 初始化其 index 字段（int 类型）, 在 InternalThreadLocal.set() 方法中就会将传入
+     * 的数据存储到 InternalThreadLocalMap.indexedVariables 集合中, 具体的下标位置就是这里的 index 字段值
      */
     public final void set(V value) {
+        // 如果要存储的值为null或是UNSERT, 则直接清除
         if (value == null || value == InternalThreadLocalMap.UNSET) {
             remove();
         } else {
+            // 获取当前线程绑定的InternalThreadLocalMap
             InternalThreadLocalMap threadLocalMap = InternalThreadLocalMap.get();
+            // 将value存储到InternalThreadLocalMap.indexedVariables集合中
             if (threadLocalMap.setIndexedVariable(index, value)) {
+                // 将当前InternalThreadLocal记录到待删除集合中
                 addToVariablesToRemove(threadLocalMap, this);
             }
         }

@@ -49,10 +49,20 @@ public class AppResponse implements Result {
 
     private static final long serialVersionUID = -6925924956850004727L;
 
+    /**
+     * 响应结果, 也就是服务端返回的结果值, 注意, 这是一个业务上的结果值. 例如, 在我们前面第 01 课时的 Demo 示例
+     * (即 dubbo-demo 模块中的 Demo)中, Provider 端 DemoServiceImpl 返回的 “Hello Dubbo xxx” 这一串字符串
+     */
     private Object result;
 
+    /**
+     * 服务端返回的异常信息
+     */
     private Throwable exception;
 
+    /**
+     * 服务端返回的附加信息
+     */
     private Map<String, Object> attachments = new HashMap<>();
 
     public AppResponse() {
@@ -68,6 +78,7 @@ public class AppResponse implements Result {
 
     @Override
     public Object recreate() throws Throwable {
+        // 存在异常则直接抛出异常
         if (exception != null) {
             // fix issue#619
             try {
@@ -88,6 +99,7 @@ public class AppResponse implements Result {
             }
             throw exception;
         }
+        // 正常返回无异常时, 直接返回result
         return result;
     }
 

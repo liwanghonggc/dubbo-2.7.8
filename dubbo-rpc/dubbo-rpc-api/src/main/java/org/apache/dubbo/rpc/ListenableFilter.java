@@ -25,6 +25,11 @@ import java.util.concurrent.ConcurrentMap;
  * <p>
  * If you do not want to share Listener instance between RPC calls. You can use ListenableFilter
  * to keep a 'one Listener each RPC call' model.
+ * 
+ * 它继承了 Filter 接口, 在原有 Filter 的基础上添加了一个 listeners 集合(ConcurrentMap<Invocation, Filter.Listener> 集合)
+ * 用来记录一次请求需要触发的监听器。需要注意的是, 在执行 invoke() 调用之前, 我们可以调用 addListener() 方法添加 Filter.Listener
+ * 实例进行监听, 完成一次 invoke() 方法之后, 这些添加的 Filter.Listener 实例就会立即从 listeners 集合中删除, 也就是说, 这些
+ * Filter.Listener 实例不会在调用之间共享
  */
 public abstract class ListenableFilter implements Filter {
 

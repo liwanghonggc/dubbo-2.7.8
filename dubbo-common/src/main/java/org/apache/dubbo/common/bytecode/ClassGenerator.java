@@ -54,14 +54,42 @@ public final class ClassGenerator {
     private static final Map<ClassLoader, ClassPool> POOL_MAP = new ConcurrentHashMap<ClassLoader, ClassPool>(); //ClassLoader - ClassPool
     private ClassPool mPool;
     private CtClass mCtc;
+
+    /**
+     * 代理类的类名
+     */
     private String mClassName;
+
+    /**
+     * 代理类父类的名称
+     */
     private String mSuperClass;
+
+    /**
+     * 代理类实现的接口
+     */
     private Set<String> mInterfaces;
+
+    /**
+     * 代理类中的字段
+     */
     private List<String> mFields;
+
+    /**
+     * 代理类中全部构造方法的信息, 其中包括构造方法的具体实现
+     */
     private List<String> mConstructors;
+
+    /**
+     * 代理类中全部方法的信息, 其中包括方法的具体实现
+     */
     private List<String> mMethods;
     private Map<String, Method> mCopyMethods; // <method desc,method instance>
     private Map<String, Constructor<?>> mCopyConstructors; // <constructor desc,constructor instance>
+
+    /**
+     * 标识是否为代理类生成的默认构造方法
+     */
     private boolean mDefaultConstructor = false;
 
     private ClassGenerator() {
@@ -281,6 +309,9 @@ public final class ClassGenerator {
         return mPool;
     }
 
+    /**
+     * 在 ClassGenerator 的 toClass() 方法中, 会根据上述字段用 Javassist 生成代理类
+     */
     public Class<?> toClass() {
         return toClass(ClassUtils.getClassLoader(ClassGenerator.class),
                 getClass().getProtectionDomain());
@@ -290,28 +321,37 @@ public final class ClassGenerator {
         if (mCtc != null) {
             mCtc.detach();
         }
+
+        // 在代理类继承父类的时候, 会将该id作为后缀编号, 防止代理类重名
         long id = CLASS_NAME_COUNTER.getAndIncrement();
         try {
             CtClass ctcs = mSuperClass == null ? null : mPool.get(mSuperClass);
+            // 确定代理类的名称
             if (mClassName == null) {
                 mClassName = (mSuperClass == null || javassist.Modifier.isPublic(ctcs.getModifiers())
                         ? ClassGenerator.class.getName() : mSuperClass + "$sc") + id;
             }
+
+            // 创建CtClass, 用来生成代理类
             mCtc = mPool.makeClass(mClassName);
+            // 设置代理类的父类
             if (mSuperClass != null) {
                 mCtc.setSuperclass(ctcs);
             }
+            // 设置代理类实现的接口, 默认会添加DC这个接口
             mCtc.addInterface(mPool.get(DC.class.getName())); // add dynamic class tag.
             if (mInterfaces != null) {
                 for (String cl : mInterfaces) {
                     mCtc.addInterface(mPool.get(cl));
                 }
             }
+            // 设置代理类的字段
             if (mFields != null) {
                 for (String code : mFields) {
                     mCtc.addField(CtField.make(code, mCtc));
                 }
             }
+            // 生成代理类的方法
             if (mMethods != null) {
                 for (String code : mMethods) {
                     if (code.charAt(0) == ':') {
@@ -322,9 +362,11 @@ public final class ClassGenerator {
                     }
                 }
             }
+            // 生成默认的构造方法
             if (mDefaultConstructor) {
                 mCtc.addConstructor(CtNewConstructor.defaultConstructor(mCtc));
             }
+            // 生成构造方法
             if (mConstructors != null) {
                 for (String code : mConstructors) {
                     if (code.charAt(0) == ':') {

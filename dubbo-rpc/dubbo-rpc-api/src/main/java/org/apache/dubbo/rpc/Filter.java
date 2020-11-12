@@ -50,7 +50,9 @@ public interface Filter {
     Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException;
 
     /**
-     * 用于监听响应以及异常
+     * 在 Filter 接口内部还定义了一个 Listener 接口, 有一些 Filter 实现会同时实现这个内部 Listener 接口,
+     * 当 invoke() 方法执行正常结束时, 会调用该 Listener 的 onResponse() 方法进行通知；当 invoke() 方法
+     * 执行出现异常时, 会调用该 Listener 的 onError() 方法进行通知
      */
     interface Listener {
 
