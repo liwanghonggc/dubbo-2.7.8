@@ -41,6 +41,15 @@ public class TimeoutFilter implements Filter, Filter.Listener {
 
     private static final Logger logger = LoggerFactory.getLogger(TimeoutFilter.class);
 
+    /**
+     * org.apache.dubbo.rpc.filter.ContextFilter#invoke(org.apache.dubbo.rpc.Invoker, org.apache.dubbo.rpc.Invocation)
+     * org.apache.dubbo.rpc.protocol.dubbo.DubboInvoker#calculateTimeout(org.apache.dubbo.rpc.Invocation, java.lang.String)
+     *
+     * TimeoutFilter 是 Provider 端另一个涉及超时时间的 Filter 实现, 其 invoke() 方法实现比较简单,
+     * 直接将请求转发给后续 Filter 处理. 在 TimeoutFilter 对 onResponse() 方法的实现中, 会从 RpcContext
+     * 中读取上述 TimeoutCountDown 对象, 并检查此次请求是否超时. 如果请求已经超时, 则会将 AppResponse 中
+     * 的结果清空, 同时打印一条警告日志
+     */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         return invoker.invoke(invocation);
@@ -51,8 +60,10 @@ public class TimeoutFilter implements Filter, Filter.Listener {
         Object obj = RpcContext.getContext().get(TIME_COUNTDOWN_KEY);
         if (obj != null) {
             TimeoutCountDown countDown = (TimeoutCountDown) obj;
+            // 检查结果是否超时
             if (countDown.isExpired()) {
-                ((AppResponse) appResponse).clear(); // clear response in case of timeout.
+                // 清理结果信息
+                ((AppResponse) appResponse).clear();
                 if (logger.isWarnEnabled()) {
                     logger.warn("invoke timed out. method: " + invocation.getMethodName() + " arguments: " +
                             Arrays.toString(invocation.getArguments()) + " , url is " + invoker.getUrl() +

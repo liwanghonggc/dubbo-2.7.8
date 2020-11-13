@@ -28,7 +28,9 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 
 /**
- * InvokerHandler
+ * 无论是 Javassist 还是 JDK 生成的代理类, 都会将方法委托给 InvokerInvocationHandler 进行处理.
+ * InvokerInvocationHandler 中维护了一个 Invoker 对象, 也是前面 getProxy() 方法传入的第一个参数,
+ * 这个 Invoker 不是一个简单的 DubboInvoker 对象, 而是在 DubboInvoker 之上经过一系列装饰器修饰的 Invoker 对象
  */
 public class InvokerInvocationHandler implements InvocationHandler {
     private static final Logger logger = LoggerFactory.getLogger(InvokerInvocationHandler.class);
@@ -64,6 +66,8 @@ public class InvokerInvocationHandler implements InvocationHandler {
         } else if (parameterTypes.length == 1 && "equals".equals(methodName)) {
             return invoker.equals(args[0]);
         }
+        
+        // 对于业务方法, 会创建相应的 RpcInvocation 对象调用 Invoker.invoke() 方法发起 RPC 调用
         RpcInvocation rpcInvocation = new RpcInvocation(method, invoker.getInterface().getName(), args);
         String serviceKey = invoker.getUrl().getServiceKey();
         rpcInvocation.setTargetServiceUniqueName(serviceKey);
@@ -73,6 +77,7 @@ public class InvokerInvocationHandler implements InvocationHandler {
             rpcInvocation.put(Constants.METHOD_MODEL, consumerModel.getMethodModel(method));
         }
 
+        // 调用invoke()方法发起远程调用, 拿到AsyncRpcResult之后, 调用recreate()方法获取响应结果(或是Future)
         return invoker.invoke(rpcInvocation).recreate();
     }
 }

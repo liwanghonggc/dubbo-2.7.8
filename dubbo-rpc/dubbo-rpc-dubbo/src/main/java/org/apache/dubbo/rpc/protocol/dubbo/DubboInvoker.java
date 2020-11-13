@@ -189,18 +189,27 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
         }
     }
 
+    /**
+     * 在前文介绍 ConsumerContextFilter 的时候可以看到, 如果通过 TIME_COUNTDOWN_KEY 在 RpcContext 中
+     * 配置了 TimeCountDown, 就会对 TimeoutCountDown 进行检查, 判定此次请求是否超时。然后, 在 DubboInvoker
+     * 的 doInvoker() 方法实现中可以看到, 在发起请求之前会调用 calculateTimeout() 方法确定该请求还有多久过期
+     */
     private int calculateTimeout(Invocation invocation, String methodName) {
         Object countdown = RpcContext.getContext().get(TIME_COUNTDOWN_KEY);
         int timeout = DEFAULT_TIMEOUT;
+        // RpcContext中没有指定TIME_COUNTDOWN_KEY, 则使用timeout配置获取timeout配置指定的超时时长, 默认值为1秒
         if (countdown == null) {
             timeout = (int) RpcUtils.getTimeout(getUrl(), methodName, RpcContext.getContext(), DEFAULT_TIMEOUT);
             if (getUrl().getParameter(ENABLE_TIMEOUT_COUNTDOWN_KEY, false)) {
-                invocation.setObjectAttachment(TIMEOUT_ATTACHMENT_KEY, timeout); // pass timeout to remote server
+                // 如果开启了ENABLE_TIMEOUT_COUNTDOWN_KEY, 则通过TIMEOUT_ATTACHENT_KEY将超时时间传递给Provider端
+                invocation.setObjectAttachment(TIMEOUT_ATTACHMENT_KEY, timeout); 
             }
         } else {
+            // 当前RpcContext中已经通过TIME_COUNTDOWN_KEY指定了超时时间, 则使用该值作为超时时间
             TimeoutCountDown timeoutCountDown = (TimeoutCountDown) countdown;
             timeout = (int) timeoutCountDown.timeRemaining(TimeUnit.MILLISECONDS);
-            invocation.setObjectAttachment(TIMEOUT_ATTACHMENT_KEY, timeout);// pass timeout to remote server
+            // 将剩余超时时间放入attachment中, 传递给Provider端
+            invocation.setObjectAttachment(TIMEOUT_ATTACHMENT_KEY, timeout);
         }
         return timeout;
     }

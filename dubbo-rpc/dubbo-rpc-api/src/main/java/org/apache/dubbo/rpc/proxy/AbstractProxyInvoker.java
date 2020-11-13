@@ -78,11 +78,18 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
     public void destroy() {
     }
 
+    /**
+     * 在 AbstractProxyInvoker 实现的 invoke() 方法中, 会将 doInvoke() 方法返回的结果封装成
+     * CompletableFuture 对象, 然后再封装成 AsyncRpcResult 对象返回
+     */
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
         try {
+            // 执行doInvoke()方法, 调用业务实现
             Object value = doInvoke(proxy, invocation.getMethodName(), invocation.getParameterTypes(), invocation.getArguments());
+            // 将value值封装成CompletableFuture对象
 			CompletableFuture<Object> future = wrapWithFuture(value);
+            // 再次转换, 转换为CompletableFuture<AppResponse>类型
             CompletableFuture<AppResponse> appResponseFuture = future.handle((obj, t) -> {
                 AppResponse result = new AppResponse();
                 if (t != null) {
@@ -96,6 +103,7 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
                 }
                 return result;
             });
+            // 将CompletableFuture封装成AsyncRpcResult返回
             return new AsyncRpcResult(appResponseFuture, invocation);
         } catch (InvocationTargetException e) {
             if (RpcContext.getContext().isAsyncStarted() && !RpcContext.getContext().stopAsync()) {

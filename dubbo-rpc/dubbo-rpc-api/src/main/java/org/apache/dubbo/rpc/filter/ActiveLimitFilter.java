@@ -38,6 +38,11 @@ import static org.apache.dubbo.rpc.Constants.ACTIVES_KEY;
  *      If there are more than configured (in this example 2) is trying to invoke remote method, then rest of invocation
  *      will wait for configured timeout(default is 0 second) before invocation gets kill by dubbo.
  * </pre>
+ * 
+ * ActiveLimitFilter 是 Consumer 端用于限制一个 Consumer 对于一个服务端方法的并发调用量, 也可以称为“客户端限流”.
+ * 
+ * ActiveLimitFilter 在继承 Filter 接口的同时, 还继承了 Filter.Listener 这个内部接口, 在其 onResponse() 方法的实现中,
+ * 不仅会调用 RpcStatus.endCount() 方法完成调用监控的统计, 还会调用 notifyFinish() 方法唤醒阻塞在对应 RpcStatus 对象上的线程
  *
  * @see Filter
  */
@@ -50,19 +55,25 @@ public class ActiveLimitFilter implements Filter, Filter.Listener {
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         URL url = invoker.getUrl();
         String methodName = invocation.getMethodName();
+        // 获取最大并发数
         int max = invoker.getUrl().getMethodParameter(methodName, ACTIVES_KEY, 0);
+        // 获取该方法的状态信息
         final RpcStatus rpcStatus = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName());
+        // 尝试并发度加一
         if (!RpcStatus.beginCount(url, methodName, max)) {
             long timeout = invoker.getUrl().getMethodParameter(invocation.getMethodName(), TIMEOUT_KEY, 0);
             long start = System.currentTimeMillis();
             long remain = timeout;
             synchronized (rpcStatus) {
+                // 再次尝试并发度加一
                 while (!RpcStatus.beginCount(url, methodName, max)) {
                     try {
+                        // 当前线程阻塞, 等待并发度降低
                         rpcStatus.wait(remain);
                     } catch (InterruptedException e) {
                         // ignore
                     }
+                    // 检测是否超时
                     long elapsed = System.currentTimeMillis() - start;
                     remain = timeout - elapsed;
                     if (remain <= 0) {
@@ -76,6 +87,7 @@ public class ActiveLimitFilter implements Filter, Filter.Listener {
             }
         }
 
+        // 添加一个attribute
         invocation.put(ACTIVELIMIT_FILTER_START_TIME, System.currentTimeMillis());
 
         return invoker.invoke(invocation);
@@ -87,7 +99,9 @@ public class ActiveLimitFilter implements Filter, Filter.Listener {
         URL url = invoker.getUrl();
         int max = invoker.getUrl().getMethodParameter(methodName, ACTIVES_KEY, 0);
 
+        // 调用 RpcStatus.endCount() 方法完成调用监控的统计
         RpcStatus.endCount(url, methodName, getElapsed(invocation), true);
+        // 调用 notifyFinish() 方法唤醒阻塞在对应 RpcStatus 对象上的线程
         notifyFinish(RpcStatus.getStatus(url, methodName), max);
     }
 

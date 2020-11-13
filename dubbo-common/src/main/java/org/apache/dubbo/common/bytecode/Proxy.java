@@ -72,11 +72,41 @@ public abstract class Proxy {
     }
 
     /**
-     * Get proxy.
+     * 1) 首先是查找 PROXY_CACHE_MAP 这个代理类缓存(new WeakHashMap<ClassLoader, Map<String, Object>>() 类型),
+     * 其中第一层 Key 是 ClassLoader 对象, 第二层 Key 是上面整理得到的接口拼接而成的, Value 是被缓存的代理类的
+     * WeakReference(弱引用). 查找缓存的结果有下面三个:
      *
-     * @param cl  class loader.
-     * @param ics interface class array.
-     * @return Proxy instance.
+     *   a) 如果缓存中查找不到任务信息, 则会在缓存中添加一个 PENDING_GENERATION_MARKER 占位符,
+     *      当前线程后续创建生成代理类并最终替换占位符.
+     *
+     *   b) 如果在缓存中查找到了 PENDING_GENERATION_MARKER 占位符, 说明其他线程已经在生成相应的代理类了,
+     *      当前线程会阻塞等待.
+     *
+     *   c) 如果缓存中查找到完整代理类, 则会直接返回, 不会再执行后续动态代理类的生成.
+     *
+     *   完成缓存的查找之后, 下面我们再来看代理类的生成过程.
+     *
+     * 2) 调用 ClassGenerator.newInstance() 方法创建 ClassLoader 对应的 ClassPool. ClassGenerator 中封装了
+     *    Javassist 的基本操作, 还定义了很多字段用来暂存代理类的信息, 在其 toClass() 方法中会用这些暂存的信息来动态生成代理类
+     *
+     * 3) 从 PROXY_CLASS_COUNTER 字段(AtomicLong类型)中获取一个 id 值, 作为代理类的后缀, 这主要是为了避免类名重复发生冲突.
+     *
+     * 4) 遍历全部接口, 获取每个接口中定义的方法, 对每个方法进行如下处理:
+     *
+     *    a) 加入 worked 集合(Set<String> 类型)中, 用来判重.
+     *
+     *    b) 将方法对应的 Method 对象添加到 methods 集合(List<Method> 类型)中.
+     *
+     *    c) 获取方法的参数类型以及返回类型, 构建方法体以及 return 语句.
+     *
+     *    d) 将构造好的方法添加到 ClassGenerator 中的 mMethods 集合中进行缓存.
+     *
+     * 5) 开始创建代理实例类(ProxyInstance)和代理类. 这里我们先创建代理实例类, 需要向 ClassGenerator
+     *    中添加相应的信息, 例如, 类名、默认构造方法、字段、父类以及一个 newInstance() 方法
+     * 
+     * 6) 也就是最后一步, 在 finally 代码块中, 会释放 ClassGenerator 的相关资源, 将生成的代理类添加到
+     *    PROXY_CACHE_MAP 缓存中保存, 同时会唤醒所有阻塞在 PROXY_CACHE_MAP 缓存上的线程, 重新检测需要
+     *    的代理类是否已经生成完毕
      */
     public static Proxy getProxy(ClassLoader cl, Class<?>... ics) {
         if (ics.length > MAX_PROXY_COUNT) {

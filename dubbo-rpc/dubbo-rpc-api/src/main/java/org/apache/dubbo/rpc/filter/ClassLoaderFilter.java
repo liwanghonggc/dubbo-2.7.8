@@ -26,10 +26,17 @@ import org.apache.dubbo.rpc.RpcException;
 
 /**
  * Set the current execution thread class loader to service interface's class loader.
+ * ClassLoaderFilter 是 Provider 端的一个 Filter 实现, 主要功能是切换类加载器
  */
 @Activate(group = CommonConstants.PROVIDER, order = -30000)
 public class ClassLoaderFilter implements Filter {
 
+    /**
+     * 在 ClassLoaderFilter.invoke() 方法中, 首先获取当前线程关联的 contextClassLoader,
+     * 然后将其 ContextClassLoader 设置为 invoker.getInterface().getClassLoader(), 也
+     * 就是加载服务接口类的类加载器. 之后执行 invoker.invoke() 方法, 执行后续的 Filter 逻辑
+     * 以及业务逻辑. 最后, 将当前线程关联的 contextClassLoader 重置为原来的 contextClassLoader
+     */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         ClassLoader ocl = Thread.currentThread().getContextClassLoader();
