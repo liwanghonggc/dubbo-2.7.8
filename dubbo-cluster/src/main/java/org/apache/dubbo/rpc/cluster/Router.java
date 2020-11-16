@@ -30,6 +30,8 @@ import java.util.List;
  *
  * @see org.apache.dubbo.rpc.cluster.Cluster#join(Directory)
  * @see org.apache.dubbo.rpc.cluster.Directory#list(Invocation)
+ * 
+ * Router 的主要功能就是根据用户配置的路由规则以及请求携带的信息, 过滤出符合条件的 Invoker 集合, 供后续负载均衡逻辑使用
  */
 public interface Router extends Comparable<Router> {
 

@@ -35,7 +35,14 @@ import static org.apache.dubbo.rpc.cluster.Constants.REFER_KEY;
 
 /**
  * Abstract implementation of Directory: Invoker list returned from this Directory's list method have been filtered by Routers
+ * AbstractDirectory 是 Directory 接口的抽象实现, 其中除了维护 Consumer 端的 URL 信息,
+ * 还维护了一个 RouterChain 对象, 用于记录当前使用的 Router 对象集合, 也就是后面要介绍的路由规则
  *
+ * Directory 接口有 RegistryDirectory 和 StaticDirectory 两个具体实现
+ * 
+ * 1) RegistryDirectory 实现中维护的 Invoker 集合会随着注册中心中维护的注册信息动态发生变化,
+ *    这就依赖了 ZooKeeper 等注册中心的推送能力
+ * 2) StaticDirectory 实现中维护的 Invoker 集合则是静态的, 在 StaticDirectory 对象创建完成之后, 不会再发生变化
  */
 public abstract class AbstractDirectory<T> implements Directory<T> {
 

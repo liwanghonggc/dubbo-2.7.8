@@ -32,6 +32,8 @@ import java.util.List;
  * <a href="http://en.wikipedia.org/wiki/Load_balancing_(computing)">Load-Balancing</a>
  *
  * @see org.apache.dubbo.rpc.cluster.Cluster#join(Directory)
+ * 
+ * 是负载均衡接口, Consumer 会按照指定的负载均衡策略, 从 Provider 集合中选出一个最合适的 Provider 节点来处理请求
  */
 @SPI(RandomLoadBalance.NAME)
 public interface LoadBalance {

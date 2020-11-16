@@ -65,7 +65,7 @@ class StatItem {
 
         // 请求限流
         if (token.sum() < 0) {
-            return false;
+            return false;Cluster
         }
         // 请求正常通过
         token.decrement();
