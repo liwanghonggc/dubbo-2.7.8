@@ -92,7 +92,12 @@ import static org.apache.dubbo.rpc.cluster.Constants.ROUTER_KEY;
  * RegistryDirectory 实现中维护的 Invoker 集合会随着注册中心中维护的注册信息动态发生变化,
  * 这就依赖了 ZooKeeper 等注册中心的推送能力. RegistryDirectory 是一个动态的 Directory 实现,
  * 实现了 NotifyListener 接口, 当注册中心的服务配置发生变化时, RegistryDirectory 会收到变更通知,
- * 然后RegistryDirectory 会根据注册中心推送的通知, 动态增删底层 Invoker 集合
+ * 然后RegistryDirectory 会根据注册中心推送的通知, 动态增删底层 Invoker 集合.
+ * 
+ * RegistryDirectory 相关的内容, 作为一个 NotifyListener 监听器, RegistryDirectory 会同时监听
+ * 注册中心的 providers、routers 和 configurators 三个目录. 通过 RegistryDirectory 处理 configurators
+ * 目录的逻辑, 我们了解到 configurators 目录中动态添加的 URL 会覆盖 providers 目录下注册的 Provider URL,
+ * Dubbo 还会按照 configurators 目录下的最新配置, 重新创建 Invoker 对象(同时会销毁原来的 Invoker 对象)
  */
 public class RegistryDirectory<T> extends AbstractDirectory<T> implements NotifyListener {
 
